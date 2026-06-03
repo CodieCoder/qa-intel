@@ -1,21 +1,16 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, basename, extname } from "node:path";
-import { compileGherkin, parseTestSuite } from "./modules/dsl/index.js";
-import { UIContractMap } from "./modules/contracts/index.js";
+import { compileGherkin } from "./modules/dsl/index.js";
 import { runSuiteTool } from "./modules/engine/index.js";
-import {
-  buildRegistry,
-  type TestidRegistry,
-} from "./modules/registry/index.js";
 
 // ─── CLI Entry Point ─────────────────────────────────────────────────────────
 //
 // All output is JSON. No ANSI. Designed for agent-to-agent consumption.
 //
 // Commands:
-//   qa-runner run <suite|feature> <contracts> [flags]   Execute tests → JSON
-//   qa-runner compile <feature> [flags]                 Gherkin → suite.json + contracts.json
+//   qa-runner run <suite.json> [flags]                  Execute tests → JSON
+//   qa-runner compile <feature> [flags]                 Gherkin → suite.json
 //
 
 async function main() {
@@ -32,7 +27,7 @@ async function main() {
   return runSuite(args);
 }
 
-// ─── Compile: Gherkin → suite.json + contracts.json ──────────────────────────
+// ─── Compile: Gherkin → suite.json ──────────────────────────────────────────
 
 async function compileFeature(args: string[]) {
   const featurePath = args[1];
@@ -42,6 +37,7 @@ async function compileFeature(args: string[]) {
     );
     process.exit(1);
   }
+  rejectUnexpectedPositional(args, 2);
 
   const resolvedPath = resolve(featurePath);
   const gherkinSource = await readFile(resolvedPath, "utf-8");
@@ -105,6 +101,7 @@ async function compileAndRun(args: string[]) {
     outputError("Usage: qa-runner <feature-file> [flags]");
     process.exit(1);
   }
+  rejectUnexpectedPositional(args, 1);
 
   const gherkinSource = await readFile(featurePath, "utf-8");
   const { contracts, errors } = compileGherkin(gherkinSource, {
@@ -143,6 +140,7 @@ async function runSuite(args: string[]) {
     );
     process.exit(1);
   }
+  rejectUnexpectedPositional(args, 1);
 
   const suitePath = resolve(args[0]);
 
@@ -164,6 +162,7 @@ async function runSuite(args: string[]) {
 async function executeSuite(suiteRaw: any, args: string[]) {
   const baseUrl = getFlagValue(args, "--base-url");
   const failFast = args.includes("--fail-fast");
+  const autoHeal = args.includes("--auto-heal");
   const artifactDir =
     getFlagValue(args, "--artifact-dir") ?? ".qa-results/artifacts";
   const resultsDb =
@@ -178,6 +177,7 @@ async function executeSuite(suiteRaw: any, args: string[]) {
       config: {
         headless: !args.includes("--headed"),
         failFast,
+        autoHeal,
       },
     });
 
@@ -223,26 +223,28 @@ function getFlagValue(args: string[], flag: string): string | undefined {
   return undefined;
 }
 
-// ─── Registry Loading ─────────────────────────────────────────────────────────
-//
-// Reads `.qa-results/registry-config.json` if it exists (searched upward from
-// cwd); otherwise falls back to default roots per plan §9.4. The config file
-// is a tiny JSON of shape:
-//   { "roots": ["apps/admin/src", "packages/ui/src"], "ignore": [] }
-// Any missing field uses the defaults.
-//
-// Paths in `roots` are resolved relative to the repo root — the directory
-// that owns `apps/` and `packages/`. When invoked via compile.sh the cwd is
-// `packages/qa-agent/`; we walk upward looking for the monorepo root marker
-// (an `apps/` directory) and resolve registry roots from there.
+const VALUE_FLAGS = new Set([
+  "--name",
+  "--base-url",
+  "--out-dir",
+  "--artifact-dir",
+  "--results-db",
+]);
 
-interface RegistryConfig {
-  roots?: string[];
-  ignore?: string[];
+function rejectUnexpectedPositional(args: string[], startIndex: number): void {
+  for (let i = startIndex; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith("--")) {
+      if (VALUE_FLAGS.has(arg)) i++;
+      continue;
+    }
+
+    outputError(
+      `Unexpected positional argument "${arg}". contracts.json is no longer used; run compiled suites with "qa-runner run <suite.json>".`,
+    );
+    process.exit(1);
+  }
 }
-
-const DEFAULT_REGISTRY_ROOTS = ["apps/admin/src", "packages/ui/src"];
-const REGISTRY_CONFIG_FILE = ".qa-results/registry-config.json";
 
 function findRepoRoot(): string {
   let dir = process.cwd();
@@ -268,44 +270,6 @@ function parsePath(p: string): { root: string } {
   // On POSIX the root is "/"; on Windows it's "C:\\" etc. `resolve("..")`
   // from the root returns the same root, so that's what we compare against.
   return { root: resolve(p, "/") };
-}
-
-async function loadRegistry(): Promise<TestidRegistry | undefined> {
-  const repoRoot = findRepoRoot();
-  let roots = DEFAULT_REGISTRY_ROOTS.map((r) => resolve(repoRoot, r));
-  let ignore: string[] | undefined;
-
-  const cfgPath = resolve(repoRoot, REGISTRY_CONFIG_FILE);
-  if (existsSync(cfgPath)) {
-    // Keep an inner try/catch around JSON.parse so a malformed config
-    // file falls through to defaults — that's intentional. Everything
-    // else (missing roots, scanner failures) should surface loudly so
-    // real bugs aren't silently swallowed.
-    try {
-      const raw = await readFile(cfgPath, "utf-8");
-      const cfg = JSON.parse(raw) as RegistryConfig;
-      if (Array.isArray(cfg.roots) && cfg.roots.length > 0) {
-        roots = cfg.roots.map((r) => resolve(repoRoot, r));
-      }
-      if (Array.isArray(cfg.ignore)) ignore = cfg.ignore;
-    } catch {
-      // Malformed config — fall through to defaults.
-    }
-  }
-
-  // Filter to only existing directories. In a fresh clone or a test
-  // harness none of the defaults may exist; when that happens we skip
-  // verification gracefully with a one-line stderr warning rather than
-  // hiding every possible scanner error behind a blanket catch.
-  const existingRoots = roots.filter((r) => existsSync(r));
-  if (existingRoots.length === 0) {
-    process.stderr.write(
-      "qa-agent: none of the registry roots exist, compiling without testid verification\n",
-    );
-    return undefined;
-  }
-
-  return await buildRegistry({ roots: existingRoots, ignore });
 }
 
 main();

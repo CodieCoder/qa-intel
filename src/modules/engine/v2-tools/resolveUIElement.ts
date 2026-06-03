@@ -1,29 +1,31 @@
 import type { ResolveUIElementInput, ResolveUIElementOutput } from "../../types/index.js";
+import { describeLocator } from "../../locators/index.js";
 
 /**
- * Resolves a UI element targetRef. With the semantic locator architecture,
- * this simply returns the targetRef as-is — the actual resolution happens
- * at runtime in the ActionEngine via Playwright's getByRole/getByText/locator.
+ * Resolves a UI element locator description. Actual Playwright resolution
+ * happens at runtime in the shared locator resolver.
  */
 export async function resolveUIElementTool(
   input: ResolveUIElementInput
 ): Promise<ResolveUIElementOutput> {
-  if (!input.targetRef) {
+  if (!input.locator) {
     return {
       ok: false,
       error: {
         code: "INVALID_INPUT",
-        message: "Missing targetRef",
+        message: "Missing locator",
       },
     };
   }
 
+  const selector = describeLocator(input.locator);
+
   return {
     ok: true,
     data: {
-      selector: input.targetRef,
+      selector,
       exists: true,
-      description: `Semantic target: ${input.targetRef}`,
+      description: `Semantic locator: ${selector}`,
     },
   };
 }

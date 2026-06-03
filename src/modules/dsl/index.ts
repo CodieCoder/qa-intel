@@ -1,4 +1,17 @@
 export {
+  // ARIA role vocabulary
+  ARIA_ROLES,
+  AriaRoleSchema,
+
+  // Locator schemas
+  RoleLocatorSchema,
+  LabelLocatorSchema,
+  PlaceholderLocatorSchema,
+  TextLocatorSchema,
+  TestIdLocatorSchema,
+  CssLocatorSchema,
+  LocatorSpecSchema,
+
   // Step schemas
   NavigateStepSchema,
   ClickStepSchema,
@@ -32,6 +45,14 @@ export {
   TestSuiteSchema,
 
   // Types
+  type RoleLocator,
+  type AriaRole,
+  type LabelLocator,
+  type PlaceholderLocator,
+  type TextLocator,
+  type TestIdLocator,
+  type CssLocator,
+  type LocatorSpec,
   type NavigateStep,
   type ClickStep,
   type TypeStep,

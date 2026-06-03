@@ -1,6 +1,7 @@
 import type { Page } from "playwright";
-import type { Assertion, AssertionResult } from "../dsl/index.js";
+import type { Assertion, AssertionResult, LocatorSpec } from "../dsl/index.js";
 import type { NetworkEntry } from "../logger/index.js";
+import { describeLocator, resolveLocator } from "../locators/index.js";
 
 // ─── Assertion Engine ────────────────────────────────────────────────────────
 
@@ -26,19 +27,19 @@ export class AssertionEngine {
     try {
       switch (assertion.type) {
         case "visible":
-          return await this.assertVisible(page, assertion.targetRef, desc);
+          return await this.assertVisible(page, assertion.locator, desc);
 
         case "not_visible":
-          return await this.assertNotVisible(page, assertion.targetRef, desc);
+          return await this.assertNotVisible(page, assertion.locator, desc);
 
         case "exists":
-          return await this.assertExists(page, assertion.targetRef, desc);
+          return await this.assertExists(page, assertion.locator, desc);
 
         case "text_equals":
-          return await this.assertTextEquals(page, assertion.targetRef, assertion.value, desc);
+          return await this.assertTextEquals(page, assertion.locator, assertion.value, desc);
 
         case "text_contains":
-          return await this.assertTextContains(page, assertion.targetRef, assertion.value, desc);
+          return await this.assertTextContains(page, assertion.locator, assertion.value, desc);
 
         case "url_equals":
           return await this.assertUrlEquals(page, assertion.value, desc);
@@ -99,81 +100,76 @@ export class AssertionEngine {
 
   private async assertVisible(
     page: Page,
-    targetRef: string,
+    locatorSpec: LocatorSpec,
     desc: string
   ): Promise<AssertionResult> {
-    const selector = targetRef;
+    const locator = resolveLocator(page, locatorSpec);
+    const target = describeLocator(locatorSpec);
 
     try {
-      await page.waitForSelector(selector, {
-        state: "visible",
-        timeout: this.timeout,
-      });
+      await locator.waitFor({ state: "visible", timeout: this.timeout });
       return { assertion: desc, status: "passed" };
     } catch {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Element "${targetRef}" (${selector}) is not visible`,
+        reason: `Element "${target}" is not visible`,
       };
     }
   }
 
   private async assertNotVisible(
     page: Page,
-    targetRef: string,
+    locatorSpec: LocatorSpec,
     desc: string
   ): Promise<AssertionResult> {
-    const selector = targetRef;
+    const locator = resolveLocator(page, locatorSpec);
+    const target = describeLocator(locatorSpec);
 
     try {
-      await page.waitForSelector(selector, {
-        state: "hidden",
-        timeout: this.timeout,
-      });
+      await locator.waitFor({ state: "hidden", timeout: this.timeout });
       return { assertion: desc, status: "passed" };
     } catch {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Element "${targetRef}" (${selector}) is still visible`,
+        reason: `Element "${target}" is still visible`,
       };
     }
   }
 
   private async assertExists(
     page: Page,
-    targetRef: string,
+    locatorSpec: LocatorSpec,
     desc: string
   ): Promise<AssertionResult> {
-    const selector = targetRef;
+    const locator = resolveLocator(page, locatorSpec);
+    const target = describeLocator(locatorSpec);
 
     try {
-      await page.waitForSelector(selector, {
-        state: "attached",
-        timeout: this.timeout,
-      });
+      await locator.waitFor({ state: "attached", timeout: this.timeout });
       return { assertion: desc, status: "passed" };
     } catch {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Element "${targetRef}" (${selector}) does not exist in DOM`,
+        reason: `Element "${target}" does not exist in DOM`,
       };
     }
   }
 
   private async assertTextEquals(
     page: Page,
-    targetRef: string,
+    locatorSpec: LocatorSpec,
     expected: string,
     desc: string
   ): Promise<AssertionResult> {
-    const selector = targetRef;
+    const locator = resolveLocator(page, locatorSpec);
+    const target = describeLocator(locatorSpec);
 
     try {
-      await page.waitForSelector(selector, { timeout: this.timeout });
-      const actual = await page.textContent(selector);
+      await locator.waitFor({ timeout: this.timeout });
+      const actual = await locator.textContent({ timeout: this.timeout });
       const trimmed = actual?.trim() ?? "";
 
       if (trimmed === expected) {
@@ -183,7 +179,7 @@ export class AssertionEngine {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Text mismatch for "${targetRef}"`,
+        reason: `Text mismatch for "${target}"`,
         expected,
         actual: trimmed,
       };
@@ -191,7 +187,7 @@ export class AssertionEngine {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Could not read text from "${targetRef}" (${selector}): ${err instanceof Error ? err.message : String(err)}`,
+        reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
       };
     }
@@ -199,15 +195,16 @@ export class AssertionEngine {
 
   private async assertTextContains(
     page: Page,
-    targetRef: string,
+    locatorSpec: LocatorSpec,
     expected: string,
     desc: string
   ): Promise<AssertionResult> {
-    const selector = targetRef;
+    const locator = resolveLocator(page, locatorSpec);
+    const target = describeLocator(locatorSpec);
 
     try {
-      await page.waitForSelector(selector, { timeout: this.timeout });
-      const actual = await page.textContent(selector);
+      await locator.waitFor({ timeout: this.timeout });
+      const actual = await locator.textContent({ timeout: this.timeout });
       const trimmed = actual?.trim() ?? "";
 
       if (trimmed.includes(expected)) {
@@ -217,7 +214,7 @@ export class AssertionEngine {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Text does not contain expected value for "${targetRef}"`,
+        reason: `Text does not contain expected value for "${target}"`,
         expected,
         actual: trimmed,
       };
@@ -225,7 +222,7 @@ export class AssertionEngine {
       return {
         assertion: desc,
         status: "failed",
-        reason: `Could not read text from "${targetRef}" (${selector}): ${err instanceof Error ? err.message : String(err)}`,
+        reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
       };
     }
@@ -542,15 +539,15 @@ export class AssertionEngine {
   private describe(assertion: Assertion): string {
     switch (assertion.type) {
       case "visible":
-        return `visible: ${assertion.targetRef}`;
+        return `visible: ${describeLocator(assertion.locator)}`;
       case "not_visible":
-        return `not_visible: ${assertion.targetRef}`;
+        return `not_visible: ${describeLocator(assertion.locator)}`;
       case "exists":
-        return `exists: ${assertion.targetRef}`;
+        return `exists: ${describeLocator(assertion.locator)}`;
       case "text_equals":
-        return `text_equals: ${assertion.targetRef} = "${assertion.value}"`;
+        return `text_equals: ${describeLocator(assertion.locator)} = "${assertion.value}"`;
       case "text_contains":
-        return `text_contains: ${assertion.targetRef} contains "${assertion.value}"`;
+        return `text_contains: ${describeLocator(assertion.locator)} contains "${assertion.value}"`;
       case "url_equals":
         return `url_equals: "${assertion.value}"`;
       case "url_contains":

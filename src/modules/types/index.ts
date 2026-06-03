@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LocatorSpecSchema } from "../dsl/schema.js";
 
 // ─── Failure Types ───────────────────────────────────────────────────────────
 
@@ -40,9 +41,20 @@ export type ToolResponse<T> = {
 // ─── Step ────────────────────────────────────────────────────────────────────
 
 export const StepInputSchema = z.object({
-  type: z.enum(["navigate", "click", "type", "select", "wait", "request"]),
+  type: z.enum([
+    "navigate",
+    "click",
+    "type",
+    "select",
+    "wait",
+    "check",
+    "uncheck",
+    "toggle",
+    "upload",
+    "request",
+  ]),
   url: z.string().optional(),
-  targetRef: z.string().optional(),
+  locator: LocatorSpecSchema.optional(),
   value: z.string().optional(),
   timeout: z.number().optional(),
   /** HTTP method for request steps */
@@ -68,7 +80,7 @@ export const StepResultSchema = z.object({
       details: z.record(z.any()).optional(),
     })
     .optional(),
-  /** Step execution context — the targetRef from the contract, resolved CSS selector, and input value */
+  /** Step execution context — display locator, resolved locator description, and input value */
   targetRef: z.string().optional(),
   selector: z.string().optional(),
   value: z.string().optional(),
@@ -84,11 +96,11 @@ export type StepResult = z.infer<typeof StepResultSchema>;
 
 // UI Assertions
 export const UIAssertionInputSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("visible"), targetRef: z.string() }),
-  z.object({ type: z.literal("not_visible"), targetRef: z.string() }),
-  z.object({ type: z.literal("exists"), targetRef: z.string() }),
-  z.object({ type: z.literal("text_equals"), targetRef: z.string(), value: z.string() }),
-  z.object({ type: z.literal("text_contains"), targetRef: z.string(), value: z.string() }),
+  z.object({ type: z.literal("visible"), locator: LocatorSpecSchema }),
+  z.object({ type: z.literal("not_visible"), locator: LocatorSpecSchema }),
+  z.object({ type: z.literal("exists"), locator: LocatorSpecSchema }),
+  z.object({ type: z.literal("text_equals"), locator: LocatorSpecSchema, value: z.string() }),
+  z.object({ type: z.literal("text_contains"), locator: LocatorSpecSchema, value: z.string() }),
   z.object({ type: z.literal("url_equals"), value: z.string() }),
   z.object({ type: z.literal("url_contains"), value: z.string() }),
 ]);
@@ -232,6 +244,7 @@ export const SuiteConfigSchema = z.object({
   headless: z.boolean().optional(),
   failFast: z.boolean().optional(),
   timeoutMs: z.number().optional(),
+  autoHeal: z.boolean().optional(),
 });
 export type SuiteConfig = z.infer<typeof SuiteConfigSchema>;
 
@@ -239,7 +252,7 @@ export type SuiteConfig = z.infer<typeof SuiteConfigSchema>;
 
 export const RunSuiteInputSchema = z.object({
   suite: z.any(),
-  baseUrl: z.string(),
+  baseUrl: z.string().optional(),
   artifactDir: z.string().optional(),
   /** Path to SQLite results database. When set, run results are persisted. */
   resultsDb: z.string().optional(),
@@ -255,6 +268,7 @@ export const ExecuteContractInputSchema = z.object({
   contract: z.any(),
   baseUrl: z.string().optional(),
   artifactDir: z.string().optional(),
+  config: SuiteConfigSchema.optional(),
 });
 export type ExecuteContractInput = z.infer<typeof ExecuteContractInputSchema>;
 export type ExecuteContractOutput = ToolResponse<ContractResult>;
@@ -282,7 +296,7 @@ export type GenerateFixHintsOutput = ToolResponse<{
 // ─── Tool I/O: resolveUIElement ──────────────────────────────────────────────
 
 export const ResolveUIElementInputSchema = z.object({
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
 });
 export type ResolveUIElementInput = z.infer<typeof ResolveUIElementInputSchema>;
 export type ResolveUIElementOutput = ToolResponse<{
@@ -297,7 +311,7 @@ export const ValidateUIAssertionInputSchema = z.object({
   traceId: z.string(),
   assertion: z.object({
     type: z.string(),
-    targetRef: z.string().optional(),
+    locator: LocatorSpecSchema.optional(),
     value: z.string().optional(),
   }),
 });

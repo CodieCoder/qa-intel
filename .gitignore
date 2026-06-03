@@ -9,3 +9,6 @@ dist/
 # still pass `--out-dir .` — don't let those outputs be committed here.
 suite.json
 contracts.json
+
+# Environment variables
+.env

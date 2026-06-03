@@ -110,7 +110,7 @@ export async function generateFixHintsTool(
     if (selector && (reason.includes("selector") || reason.includes("resolve"))) {
       hints.push({
         type: "test",
-        suggestion: `Update the contract map: the selector "${selector}" may have changed. Use data-testid attributes for stable selectors.`,
+        suggestion: `Review the locator "${selector}". Prefer role, label, placeholder, or visible text; use testid: or css: only when the UI has no stable semantic target.`,
       });
     }
 

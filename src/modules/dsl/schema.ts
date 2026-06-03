@@ -1,5 +1,134 @@
 import { z } from "zod";
 
+// ─── Locator Types ──────────────────────────────────────────────────────────
+
+export const ARIA_ROLES = [
+  "alert",
+  "alertdialog",
+  "application",
+  "article",
+  "banner",
+  "blockquote",
+  "button",
+  "caption",
+  "cell",
+  "checkbox",
+  "code",
+  "columnheader",
+  "combobox",
+  "complementary",
+  "contentinfo",
+  "definition",
+  "deletion",
+  "dialog",
+  "directory",
+  "document",
+  "emphasis",
+  "feed",
+  "figure",
+  "form",
+  "generic",
+  "grid",
+  "gridcell",
+  "group",
+  "heading",
+  "img",
+  "insertion",
+  "link",
+  "list",
+  "listbox",
+  "listitem",
+  "log",
+  "main",
+  "marquee",
+  "math",
+  "meter",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "navigation",
+  "none",
+  "note",
+  "option",
+  "paragraph",
+  "presentation",
+  "progressbar",
+  "radio",
+  "radiogroup",
+  "region",
+  "row",
+  "rowgroup",
+  "rowheader",
+  "scrollbar",
+  "search",
+  "searchbox",
+  "separator",
+  "slider",
+  "spinbutton",
+  "status",
+  "strong",
+  "subscript",
+  "superscript",
+  "switch",
+  "tab",
+  "table",
+  "tablist",
+  "tabpanel",
+  "term",
+  "textbox",
+  "time",
+  "timer",
+  "toolbar",
+  "tooltip",
+  "tree",
+  "treegrid",
+  "treeitem",
+] as const;
+
+export const AriaRoleSchema = z.enum(ARIA_ROLES);
+
+export const RoleLocatorSchema = z.object({
+  strategy: z.literal("role"),
+  role: AriaRoleSchema,
+  name: z.string().min(1),
+});
+
+export const LabelLocatorSchema = z.object({
+  strategy: z.literal("label"),
+  name: z.string().min(1),
+});
+
+export const PlaceholderLocatorSchema = z.object({
+  strategy: z.literal("placeholder"),
+  text: z.string().min(1),
+});
+
+export const TextLocatorSchema = z.object({
+  strategy: z.literal("text"),
+  text: z.string().min(1),
+});
+
+export const TestIdLocatorSchema = z.object({
+  strategy: z.literal("testid"),
+  id: z.string().min(1),
+});
+
+export const CssLocatorSchema = z.object({
+  strategy: z.literal("css"),
+  selector: z.string().min(1),
+});
+
+export const LocatorSpecSchema = z.discriminatedUnion("strategy", [
+  RoleLocatorSchema,
+  LabelLocatorSchema,
+  PlaceholderLocatorSchema,
+  TextLocatorSchema,
+  TestIdLocatorSchema,
+  CssLocatorSchema,
+]);
+
 // ─── Step Types ──────────────────────────────────────────────────────────────
 
 export const NavigateStepSchema = z.object({
@@ -9,56 +138,47 @@ export const NavigateStepSchema = z.object({
 
 export const ClickStepSchema = z.object({
   type: z.literal("click"),
-  targetRef: z.string().min(1),
-  /** Optional declarative element-kind metadata (e.g. "button"). */
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const TypeStepSchema = z.object({
   type: z.literal("type"),
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
   value: z.string(),
-  kind: z.string().min(1).optional(),
 });
 
 export const SelectStepSchema = z.object({
   type: z.literal("select"),
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
   value: z.string(),
-  kind: z.string().min(1).optional(),
 });
 
 export const WaitStepSchema = z.object({
   type: z.literal("wait"),
-  targetRef: z.string().min(1).optional(),
+  locator: LocatorSpecSchema.optional(),
   timeout: z.number().positive().optional(),
-  kind: z.string().min(1).optional(),
 });
 
 export const CheckStepSchema = z.object({
   type: z.literal("check"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const UncheckStepSchema = z.object({
   type: z.literal("uncheck"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const ToggleStepSchema = z.object({
   type: z.literal("toggle"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const UploadStepSchema = z.object({
   type: z.literal("upload"),
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
   /** File path to upload. */
   value: z.string().min(1),
-  kind: z.string().min(1).optional(),
 });
 
 export const RequestStepSchema = z.object({
@@ -86,34 +206,29 @@ export const StepSchema = z.discriminatedUnion("type", [
 
 export const VisibleAssertionSchema = z.object({
   type: z.literal("visible"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const TextEqualsAssertionSchema = z.object({
   type: z.literal("text_equals"),
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
   value: z.string(),
-  kind: z.string().min(1).optional(),
 });
 
 export const ExistsAssertionSchema = z.object({
   type: z.literal("exists"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const TextContainsAssertionSchema = z.object({
   type: z.literal("text_contains"),
-  targetRef: z.string().min(1),
+  locator: LocatorSpecSchema,
   value: z.string(),
-  kind: z.string().min(1).optional(),
 });
 
 export const NotVisibleAssertionSchema = z.object({
   type: z.literal("not_visible"),
-  targetRef: z.string().min(1),
-  kind: z.string().min(1).optional(),
+  locator: LocatorSpecSchema,
 });
 
 export const UrlEqualsAssertionSchema = z.object({
@@ -206,6 +321,15 @@ export const TestSuiteSchema = z.object({
 });
 
 // ─── Inferred Types ──────────────────────────────────────────────────────────
+
+export type RoleLocator = z.infer<typeof RoleLocatorSchema>;
+export type AriaRole = z.infer<typeof AriaRoleSchema>;
+export type LabelLocator = z.infer<typeof LabelLocatorSchema>;
+export type PlaceholderLocator = z.infer<typeof PlaceholderLocatorSchema>;
+export type TextLocator = z.infer<typeof TextLocatorSchema>;
+export type TestIdLocator = z.infer<typeof TestIdLocatorSchema>;
+export type CssLocator = z.infer<typeof CssLocatorSchema>;
+export type LocatorSpec = z.infer<typeof LocatorSpecSchema>;
 
 export type NavigateStep = z.infer<typeof NavigateStepSchema>;
 export type ClickStep = z.infer<typeof ClickStepSchema>;
