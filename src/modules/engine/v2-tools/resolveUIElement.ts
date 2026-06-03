@@ -1,9 +1,12 @@
 import type { ResolveUIElementInput, ResolveUIElementOutput } from "../../types/index.js";
-import { UIContractMap } from "../../contracts/index.js";
 
+/**
+ * Resolves a UI element targetRef. With the semantic locator architecture,
+ * this simply returns the targetRef as-is — the actual resolution happens
+ * at runtime in the ActionEngine via Playwright's getByRole/getByText/locator.
+ */
 export async function resolveUIElementTool(
-  input: ResolveUIElementInput,
-  contractMap: UIContractMap
+  input: ResolveUIElementInput
 ): Promise<ResolveUIElementOutput> {
   if (!input.targetRef) {
     return {
@@ -15,41 +18,12 @@ export async function resolveUIElementTool(
     };
   }
 
-  try {
-    const selector = contractMap.resolve(input.targetRef);
-    if (!selector) {
-      return {
-        ok: true,
-        data: {
-          selector: "",
-          exists: false,
-          description: `No selector mapped for targetRef: ${input.targetRef}`,
-        },
-        error: {
-          code: "NOT_FOUND",
-          message: `Target ${input.targetRef} not found in DSL contracts`,
-        },
-      };
-    }
-
-    return {
-      ok: true,
-      data: {
-        selector,
-        exists: true,
-      },
-    };
-  } catch (err: any) {
-    return {
-      ok: true,
-      data: {
-        selector: "",
-        exists: false,
-      },
-      error: {
-        code: "NOT_FOUND",
-        message: err.message,
-      },
-    };
-  }
+  return {
+    ok: true,
+    data: {
+      selector: input.targetRef,
+      exists: true,
+      description: `Semantic target: ${input.targetRef}`,
+    },
+  };
 }

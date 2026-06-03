@@ -1,5 +1,4 @@
 import type { ExecuteStepInput, ExecuteStepOutput, FailureType } from "../../types/index.js";
-import { UIContractMap } from "../../contracts/index.js";
 import { TestLogger } from "../../logger/index.js";
 import { LocalArtifactStorage } from "../../store/index.js";
 import { EngineManager } from "./engine-manager.js";
@@ -8,7 +7,6 @@ const DEFAULT_ARTIFACT_DIR = ".qa-results/artifacts";
 
 export async function executeStepTool(
   input: ExecuteStepInput,
-  contractMap: UIContractMap,
   logger: TestLogger
 ): Promise<ExecuteStepOutput> {
   if (!input.traceId) {
@@ -22,7 +20,7 @@ export async function executeStepTool(
   const storage = new LocalArtifactStorage(artifactDir);
 
   try {
-    const engine = await EngineManager.getOrCreate(input.traceId, contractMap, logger);
+    const engine = await EngineManager.getOrCreate(input.traceId, logger);
 
     // V2 StepInput matches DSL Step directly now — no adapter needed
     const dslStep: any = {

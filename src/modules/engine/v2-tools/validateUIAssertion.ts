@@ -1,11 +1,9 @@
 import type { ValidateUIAssertionInput, ValidateUIAssertionOutput } from "../../types/index.js";
-import { UIContractMap } from "../../contracts/index.js";
 import { AssertionEngine } from "../../assertions/index.js";
 import { EngineManager } from "./engine-manager.js";
 
 export async function validateUIAssertionTool(
-  input: ValidateUIAssertionInput,
-  contractMap: UIContractMap
+  input: ValidateUIAssertionInput
 ): Promise<ValidateUIAssertionOutput> {
   const engine = EngineManager.get(input.traceId);
   if (!engine) {
@@ -23,7 +21,7 @@ export async function validateUIAssertionTool(
     };
   }
 
-  const assertionEngine = new AssertionEngine(contractMap);
+  const assertionEngine = new AssertionEngine();
   const assertionId = crypto.randomUUID();
 
   // V2 assertion matches DSL format directly now — no adapter needed
@@ -48,9 +46,7 @@ export async function validateUIAssertionTool(
         actual: result.actual,
         diagnostics: input.assertion.targetRef
           ? {
-              selector: contractMap.has(input.assertion.targetRef)
-                ? contractMap.resolve(input.assertion.targetRef)
-                : undefined,
+              selector: input.assertion.targetRef,
               found: result.status === "passed",
             }
           : undefined,

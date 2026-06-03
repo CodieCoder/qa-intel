@@ -1,5 +1,4 @@
 import { ActionEngine } from "../action-engine.js";
-import { UIContractMap } from "../../contracts/index.js";
 import { TestLogger } from "../../logger/index.js";
 
 // A singleton to manage stateful browser sessions per traceId.
@@ -11,7 +10,6 @@ export class EngineManager {
    */
   static async getOrCreate(
     traceId: string,
-    contractMap: UIContractMap,
     logger: TestLogger
   ): Promise<ActionEngine> {
     const existing = this.instances.get(traceId);
@@ -19,7 +17,7 @@ export class EngineManager {
       return existing;
     }
 
-    const engine = new ActionEngine(contractMap, logger);
+    const engine = new ActionEngine(logger);
     await engine.launch();
     this.instances.set(traceId, engine);
     
