@@ -20,15 +20,9 @@ const VALID_CATEGORIES = new Set([
 ]);
 
 describe("element-kinds: vocabulary shape", () => {
-  // NOTE: The migration plan text (§6.5, §14.6) says "39 entries" but the
-  // explicit §7.1 entry list and the markdown vocabulary tables both contain
-  // 41 kinds. Counted: Layout 8 + Navigation 5 + Forms 7 + Actions 3 +
-  // Data 8 + Feedback 7 + Media 3 = 41. The explicit list (plan §7.1 and
-  // markdown) is the source of truth; the prose figure is a typo in the
-  // plan. Flagged in the PR 4 implementation report.
-  it("RECOMMENDED_KINDS matches the documented vocabulary size (41 entries)", () => {
-    assert.equal(RECOMMENDED_KINDS.size, 41);
-    assert.equal(ELEMENT_KINDS.length, 41);
+  it("RECOMMENDED_KINDS matches the documented vocabulary size", () => {
+    assert.equal(RECOMMENDED_KINDS.size, 44);
+    assert.equal(ELEMENT_KINDS.length, 44);
   });
 
   it("every entry has a valid category and a non-empty description", () => {

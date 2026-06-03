@@ -7,16 +7,23 @@ export class OpenAIProvider implements LLMProvider {
       throw new Error("OPENAI_API_KEY environment variable is missing.");
     }
 
-    const prompt = `You are a self-healing QA agent. A playwright UI test step failed.
-The step tried to perform: "${context.stepType}" on target "${context.targetRef}" (kind: "${context.kind || "none"}").
+    const prompt = `You are a self-healing QA agent. A Playwright UI test step failed.
+The step tried to perform: "${context.stepType}" with this locator:
+${JSON.stringify(context.locator, null, 2)}
 Error: ${context.errorMessage}
 
 Here is the accessibility tree of the page:
 ${context.accessibilityTree}
 
-Please analyze the accessibility tree and provide an updated, highly robust CSS selector that matches the intended target.
+Please analyze the accessibility tree and screenshot and provide an updated LocatorSpec that matches the intended target.
 Respond strictly in JSON format with two keys:
-1. "selector": The new robust CSS selector.
+1. "locator": one of:
+   - {"strategy":"role","role":"button","name":"Visible name"}
+   - {"strategy":"label","name":"Visible label"}
+   - {"strategy":"placeholder","text":"Placeholder text"}
+   - {"strategy":"text","text":"Visible text"}
+   - {"strategy":"testid","id":"stable-id"}
+   - {"strategy":"css","selector":"CSS selector"}
 2. "reasoning": Brief explanation of why this matches the intended target.`;
 
     const body: any = {
@@ -45,7 +52,7 @@ Respond strictly in JSON format with two keys:
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -59,12 +66,12 @@ Respond strictly in JSON format with two keys:
       throw new Error(`OpenAI API Error: ${response.statusText} - ${text}`);
     }
 
-    const json = await response.json();
+    const json = await response.json() as any;
     const content = json.choices[0].message.content;
     const parsed = JSON.parse(content);
 
     return {
-      selector: parsed.selector,
+      locator: parsed.locator,
       reasoning: parsed.reasoning,
     };
   }

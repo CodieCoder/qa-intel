@@ -11,8 +11,10 @@ import type {
 import { TestLogger, type NetworkEntry } from "../../logger/index.js";
 import { LocalArtifactStorage } from "../../store/index.js";
 import { ActionEngine, type ConsoleLogEntry } from "../action-engine.js";
+import type { EngineConfig } from "../types.js";
 import { AssertionEngine } from "../../assertions/index.js";
 import { generateFixHintsTool } from "./generateFixHints.js";
+import { describeLocator } from "../../locators/index.js";
 
 const DEFAULT_ARTIFACT_DIR = ".qa-results/artifacts";
 
@@ -38,7 +40,7 @@ export interface ExecuteContractFullOutput extends ExecuteContractOutput {
  * - Network logs (all HTTP traffic during execution)
  * - Console logs (browser console.log/error/warn + uncaught JS errors)
  * - DOM snapshots on failure
- * - Step execution context (targetRef, resolved selector, input value)
+ * - Step execution context (display locator, resolved locator description, input value)
  */
 export async function executeContractTool(
   input: ExecuteContractInput,
@@ -60,9 +62,14 @@ export async function executeContractTool(
   const artifactDir = input.artifactDir ?? DEFAULT_ARTIFACT_DIR;
   const storage = new LocalArtifactStorage(artifactDir);
   const log = logger ?? new TestLogger({ stdout: false, collect: true });
-  const engine = new ActionEngine(log, {
+  const engineConfig: Partial<EngineConfig> = {
     baseUrl: input.baseUrl,
-  });
+    autoHeal: input.config?.autoHeal ?? false,
+  };
+  if (input.config?.headless !== undefined) engineConfig.headless = input.config.headless;
+  if (input.config?.timeoutMs !== undefined) engineConfig.timeout = input.config.timeoutMs;
+
+  const engine = new ActionEngine(log, engineConfig);
   const assertionEngine = new AssertionEngine(10_000);
   const startTime = Date.now();
 
@@ -181,12 +188,12 @@ export async function executeContractTool(
             assertionId: `${traceId}-assert-${i}`,
             domain: "ui",
             type: assertion.type,
-            targetRef: "targetRef" in assertion ? assertion.targetRef : undefined,
+            targetRef: "locator" in assertion ? describeLocator(assertion.locator) : undefined,
             status: r.status,
             expected: r.expected,
             actual: r.actual,
-            diagnostics: "targetRef" in assertion
-              ? { selector: assertion.targetRef }
+            diagnostics: "locator" in assertion
+              ? { selector: describeLocator(assertion.locator) }
               : undefined,
           });
         }

@@ -25,10 +25,13 @@ export async function executeStepTool(
     // V2 StepInput matches DSL Step directly now — no adapter needed
     const dslStep: any = {
       type: input.step.type,
-      targetRef: input.step.targetRef,
+      locator: input.step.locator,
       value: input.step.value,
       url: input.step.url,
       timeout: input.step.timeout,
+      method: input.step.method,
+      body: input.step.body,
+      headers: input.step.headers,
     };
 
     const result = await engine.execute(dslStep);
@@ -53,6 +56,9 @@ export async function executeStepTool(
           type: input.step.type,
           status: "passed",
           durationMs: result.duration,
+          targetRef: result.targetRef,
+          selector: result.selector,
+          value: result.value,
           artifacts: {
             beforeScreenshot: beforePath,
             afterScreenshot: afterPath,
@@ -67,6 +73,9 @@ export async function executeStepTool(
           type: input.step.type,
           status: "failed",
           durationMs: result.duration,
+          targetRef: result.targetRef,
+          selector: result.selector,
+          value: result.value,
           error: {
             type: classifyFailureType(result.error ?? ""),
             message: result.error ?? "Step failed to execute",

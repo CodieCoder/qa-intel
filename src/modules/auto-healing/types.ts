@@ -1,14 +1,15 @@
+import type { LocatorSpec } from "../dsl/index.js";
+
 export interface HealingContext {
   stepType: string;
-  targetRef: string;
-  kind?: string;
+  locator: LocatorSpec;
   accessibilityTree: string;
   screenshotBase64?: string;
   errorMessage: string;
 }
 
 export interface HealingResult {
-  selector?: string; // CSS selector or text/role string if appropriate
+  locator?: LocatorSpec;
   reasoning: string;
 }
 

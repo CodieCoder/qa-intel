@@ -6,6 +6,7 @@ import {
 } from "playwright";
 import type { Step } from "../dsl/index.js";
 import { AutoHealer, type HealingContext } from "../auto-healing/index.js";
+import { describeLocator, resolveLocator } from "../locators/index.js";
 import {
   TestLogger,
   type StepEvent,
@@ -258,7 +259,7 @@ export class ActionEngine {
 
     this.logger.stepStarted(
       step.type,
-      "targetRef" in step ? step.targetRef : undefined,
+      this.stepTarget(step),
     );
 
     // Reset per-step console buffer
@@ -288,7 +289,7 @@ export class ActionEngine {
           const event: StepEvent = {
             timestamp: startTime,
             type: step.type,
-            targetRef: "targetRef" in step ? step.targetRef : undefined,
+            targetRef: this.stepTarget(step),
             value: "value" in step ? step.value : undefined,
             result: "success",
             duration: Date.now() - startTime,
@@ -310,31 +311,34 @@ export class ActionEngine {
     // Try auto-healing if standard retries failed
     if (
       lastError &&
+      this.config.autoHeal &&
       step.type !== "navigate" &&
       step.type !== "wait" &&
-      "targetRef" in step &&
-      step.targetRef &&
+      "locator" in step &&
+      step.locator &&
       this.page
     ) {
       try {
-        const accessibilityTree = await this.page.accessibility.snapshot();
+        const accessibilityTree = await (this.page as any).accessibility?.snapshot?.();
         const screenshot = await this.captureScreenshot();
+        const accessibilityTreeText = accessibilityTree
+          ? JSON.stringify(accessibilityTree, null, 2)
+          : "Accessibility snapshot unavailable in this Playwright runtime.";
         
         const context: HealingContext = {
           stepType: step.type,
-          targetRef: step.targetRef,
-          kind: "kind" in step ? (step as any).kind : undefined,
-          accessibilityTree: JSON.stringify(accessibilityTree, null, 2),
+          locator: step.locator,
+          accessibilityTree: accessibilityTreeText,
           screenshotBase64: screenshot,
           errorMessage: lastError.message,
         };
 
         const healingResult = await this.autoHealer.heal(context);
 
-        if (healingResult.selector) {
-          this.logger.warn(`Self-healed locator for ${step.targetRef}. New locator: ${healingResult.selector}. Reasoning: ${healingResult.reasoning}`);
+        if (healingResult.locator) {
+          this.logger.warn(`Self-healed locator for ${describeLocator(step.locator)}. New locator: ${describeLocator(healingResult.locator)}. Reasoning: ${healingResult.reasoning}`);
           
-          const healedStep = { ...step, targetRef: healingResult.selector } as Step;
+          const healedStep = { ...step, locator: healingResult.locator } as Step;
           result = await this.performAction(healedStep);
 
           if (result.success) {
@@ -342,7 +346,7 @@ export class ActionEngine {
             const event: StepEvent = {
               timestamp: startTime,
               type: step.type,
-              targetRef: healedStep.targetRef as string,
+              targetRef: this.stepTarget(healedStep),
               value: "value" in step ? step.value : undefined,
               result: "success",
               duration: Date.now() - startTime,
@@ -366,7 +370,7 @@ export class ActionEngine {
     const event: StepEvent = {
       timestamp: startTime,
       type: step.type,
-      targetRef: "targetRef" in step ? step.targetRef : undefined,
+      targetRef: this.stepTarget(step),
       value: "value" in step ? step.value : undefined,
       result: "failed",
       duration: Date.now() - startTime,
@@ -411,7 +415,7 @@ export class ActionEngine {
           results.push({
             timestamp: Date.now(),
             type: skipped.type,
-            targetRef: "targetRef" in skipped ? skipped.targetRef : undefined,
+            targetRef: this.stepTarget(skipped),
             result: "skipped",
             duration: 0,
             network: [],
@@ -445,33 +449,33 @@ export class ActionEngine {
       }
 
       case "click": {
-        const locator = this.resolveLocator(page, step.targetRef, step.kind);
+        const locator = resolveLocator(page, step.locator);
         await locator.click({ timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: step.targetRef };
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
       }
 
       case "type": {
-        const locator = this.resolveLocator(page, step.targetRef, step.kind);
+        const locator = resolveLocator(page, step.locator);
         const value = expandStepValue(step.value);
         await locator.fill(value, { timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: step.targetRef };
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
       }
 
       case "select": {
-        const locator = this.resolveLocator(page, step.targetRef, step.kind);
+        const locator = resolveLocator(page, step.locator);
         const value = expandStepValue(step.value);
         await locator.selectOption(value, {
           timeout: this.config.timeout,
         });
-        return { success: true, duration: Date.now() - start, selector: step.targetRef };
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
       }
 
       case "wait": {
         const timeout = step.timeout ?? this.config.timeout;
-        if (step.targetRef) {
-          const locator = this.resolveLocator(page, step.targetRef, step.kind);
+        if (step.locator) {
+          const locator = resolveLocator(page, step.locator);
           await locator.waitFor({ timeout, state: "visible" });
-          return { success: true, duration: Date.now() - start, selector: step.targetRef };
+          return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
         }
         await page.waitForTimeout(timeout);
         return { success: true, duration: Date.now() - start };
@@ -545,22 +549,30 @@ export class ActionEngine {
         return { success: true, duration: Date.now() - start };
       }
 
-      // ── New declarative-grammar step types (schema PR 5). ────────────
-      // These are accepted by the compiler and appear in compiled suites
-      // authored in the declarative grammar. Runtime support is deferred
-      // to a later PR; for now they throw a clear "not implemented"
-      // error. See artifacts/analysis/qa-agent-grammar-migration-plan.md
-      // §11 ("engine not touched") — this minimal stub is required only
-      // to satisfy the exhaustive-switch type check now that the new
-      // step types are part of the discriminated union.
-      case "check":
-      case "uncheck":
-      case "toggle":
+      case "check": {
+        const locator = resolveLocator(page, step.locator);
+        await locator.check({ timeout: this.config.timeout });
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
+      }
+
+      case "uncheck": {
+        const locator = resolveLocator(page, step.locator);
+        await locator.uncheck({ timeout: this.config.timeout });
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
+      }
+
+      case "toggle": {
+        const locator = resolveLocator(page, step.locator);
+        await locator.click({ timeout: this.config.timeout });
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
+      }
+
       case "upload": {
-        throw new Error(
-          `Step type "${step.type}" is defined in the grammar but not yet ` +
-            `implemented in the engine. See qa-agent-grammar-migration-plan.md §11.`,
-        );
+        const locator = resolveLocator(page, step.locator);
+        await locator.setInputFiles(expandStepValue(step.value), {
+          timeout: this.config.timeout,
+        });
+        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
       }
 
       default: {
@@ -571,16 +583,6 @@ export class ActionEngine {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  private resolveLocator(page: Page, targetRef: string, kind?: string) {
-    if (targetRef.startsWith("#") || targetRef.startsWith(".") || targetRef.startsWith("[")) {
-      return page.locator(targetRef);
-    }
-    if (kind) {
-      return page.getByRole(kind as any, { name: targetRef });
-    }
-    return page.getByText(targetRef);
-  }
 
   private resolveUrl(url: string): string {
     if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -597,26 +599,30 @@ export class ActionEngine {
       case "navigate":
         return `navigate to ${step.url}`;
       case "click":
-        return `click ${step.targetRef}`;
+        return `click ${describeLocator(step.locator)}`;
       case "type":
-        return `type "${step.value}" into ${step.targetRef}`;
+        return `type "${step.value}" into ${describeLocator(step.locator)}`;
       case "select":
-        return `select "${step.value}" in ${step.targetRef}`;
+        return `select "${step.value}" in ${describeLocator(step.locator)}`;
       case "wait":
-        return step.targetRef
-          ? `wait for ${step.targetRef}`
+        return step.locator
+          ? `wait for ${describeLocator(step.locator)}`
           : `wait ${step.timeout ?? "default"}ms`;
       case "request":
         return `${step.method} ${step.url}`;
       case "check":
-        return `check ${step.targetRef}`;
+        return `check ${describeLocator(step.locator)}`;
       case "uncheck":
-        return `uncheck ${step.targetRef}`;
+        return `uncheck ${describeLocator(step.locator)}`;
       case "toggle":
-        return `toggle ${step.targetRef}`;
+        return `toggle ${describeLocator(step.locator)}`;
       case "upload":
-        return `upload "${step.value}" into ${step.targetRef}`;
+        return `upload "${step.value}" into ${describeLocator(step.locator)}`;
     }
+  }
+
+  private stepTarget(step: Step): string | undefined {
+    return "locator" in step && step.locator ? describeLocator(step.locator) : undefined;
   }
 
   private async captureFailureDiagnostics(): Promise<{

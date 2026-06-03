@@ -1,62 +1,36 @@
-import type { TestContract, Step, Assertion } from "./schema.js";
+import type {
+  TestContract,
+  Step,
+  Assertion,
+  LocatorSpec,
+  AriaRole,
+} from "./schema.js";
 import { isRecommendedKind, suggestKinds } from "./element-kinds.js";
-import {
-  buildRegistry as _buildRegistry,
-  type TestidRegistry,
-  relativeForReporting,
-} from "../registry/index.js";
-
-// Silence unused-import warning for the re-exported helper: we keep the
-// import so `TestidRegistry` is the canonical type seen by consumers.
-void _buildRegistry;
 
 // ─── Gherkin → JSON DSL Compiler ─────────────────────────────────────────────
 //
 // Converts Gherkin feature files into structured TestContract JSON.
 //
-// TWO grammars are accepted, in order of precedence per compile attempt:
-//
-//   1. Declarative grammar (new, preferred for new work):
-//        When I click the button login-submit
-//        → { type: "click", targetRef: "login-submit", kind: "button" }
-//
-//   2. Bare grammar (legacy, still supported):
-//        When I click login-submit
-//        → { type: "click", targetRef: "login-submit", kind: undefined }
-//
-// In both grammars `targetRef` is the RAW testid — it is NOT concatenated
-// with `kind`. The selector resolver emits `[data-testid=<targetRef>]`.
-//
-// See artifacts/analysis/qa-agent-grammar-migration-plan.md §6 for the
-// authoritative pattern table and emission rule.
+// Gherkin is intentionally strict: UI targets compile to structured
+// LocatorSpec values. Raw legacy testids are accepted only through the
+// explicit `testid:` prefix, and CSS is accepted only through `css:`.
 
 // ─── Step Patterns — Navigation / Wait(ms) / API ─────────────────────────────
 
 const NAVIGATE_PATTERN = /^(?:I )?navigate to ["'](.+?)["']$/i;
 const WAIT_MS_PATTERN = /^(?:I )?wait (\d+)(?:ms)?$/i;
 
-// ─── Step Patterns — UI interactions (declarative first, bare fallback) ─────
+// ─── Step Patterns — UI interactions ────────────────────────────────────────
 
-const CLICK_DECLARATIVE_PATTERN = /^(?:I )?click the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const CLICK_BARE_PATTERN = /^(?:I )?click (?:["'](.+?)["']|(\S+))$/i;
-
-const TYPE_DECLARATIVE_PATTERN =
-  /^(?:I )?type ["'](.+?)["'] into the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const TYPE_BARE_PATTERN = /^(?:I )?type ["'](.+?)["'] into (?:["'](.+?)["']|(\S+))$/i;
-
-const SELECT_DECLARATIVE_PATTERN =
-  /^(?:I )?select ["'](.+?)["'] in the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const SELECT_BARE_PATTERN = /^(?:I )?select ["'](.+?)["'] in (?:["'](.+?)["']|(\S+))$/i;
-
-const WAIT_DECLARATIVE_PATTERN = /^(?:I )?wait for the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const WAIT_BARE_PATTERN = /^(?:I )?wait for (?:["'](.+?)["']|(\S+))$/i;
-
-// New declarative-only step forms (no bare equivalent).
-const CHECK_DECLARATIVE_PATTERN = /^(?:I )?check the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const UNCHECK_DECLARATIVE_PATTERN = /^(?:I )?uncheck the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const TOGGLE_DECLARATIVE_PATTERN = /^(?:I )?toggle the (\S+) (?:["'](.+?)["']|(\S+))$/i;
+const CLICK_PATTERN = /^(?:I )?click (.+)$/i;
+const TYPE_PATTERN = /^(?:I )?type ["'](.+?)["'] into (.+)$/i;
+const SELECT_PATTERN = /^(?:I )?select ["'](.+?)["'] in (.+)$/i;
+const WAIT_FOR_PATTERN = /^(?:I )?wait for (.+)$/i;
+const CHECK_PATTERN = /^(?:I )?check (.+)$/i;
+const UNCHECK_PATTERN = /^(?:I )?uncheck (.+)$/i;
+const TOGGLE_PATTERN = /^(?:I )?toggle (.+)$/i;
 const UPLOAD_DECLARATIVE_PATTERN =
-  /^(?:I )?upload ["'](.+?)["'] into the (\S+) (?:["'](.+?)["']|(\S+))$/i;
+  /^(?:I )?upload ["'](.+?)["'] into (.+)$/i;
 
 // ─── Direct API Request Step Patterns ────────────────────────────────────────
 
@@ -68,29 +42,12 @@ const REQUEST_WITH_BODY_AND_HEADERS_PATTERN =
 
 // ─── Assertion Patterns ──────────────────────────────────────────────────────
 
-// UI assertions — declarative forms first, bare forms second.
-const VISIBLE_DECLARATIVE_PATTERN = /^(?:I )?should see the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const VISIBLE_BARE_PATTERN = /^(?:I )?should see (?:["'](.+?)["']|(\S+))$/i;
-
-const NOT_VISIBLE_DECLARATIVE_PATTERN =
-  /^(?:I )?should not see the (\S+) (?:["'](.+?)["']|(\S+))$/i;
-const NOT_VISIBLE_BARE_PATTERN = /^(?:I )?should not see (?:["'](.+?)["']|(\S+))$/i;
-
-const EXISTS_DECLARATIVE_PATTERN = /^the (\S+) (?:["'](.+?)["']|(\S+)) should exist$/i;
-const EXISTS_BARE_PATTERN = /^(?:["'](.+?)["']|(\S+)) should exist$/i;
-
-const TEXT_EQUALS_DECLARATIVE_PATTERN =
-  /^the (\S+) (?:["'](.+?)["']|(\S+)) should have text ["'](.+?)["']$/i;
-const TEXT_EQUALS_BARE_PATTERN = /^(?:["'](.+?)["']|(\S+)) should have text ["'](.+?)["']$/i;
-
-const TEXT_CONTAINS_DECLARATIVE_PATTERN =
-  /^the (\S+) (?:["'](.+?)["']|(\S+)) should contain (?:text )?["'](.+?)["']$/i;
-const TEXT_CONTAINS_BARE_PATTERN =
-  /^(?:["'](.+?)["']|(\S+)) should contain (?:text )?["'](.+?)["']$/i;
-
-// Declarative-only: no bare equivalent for "should not be visible".
-const NOT_VISIBLE_DECLARATIVE_FULL_PATTERN =
-  /^the (\S+) (?:["'](.+?)["']|(\S+)) should not be visible$/i;
+const VISIBLE_PATTERN = /^(?:I )?should see (.+)$/i;
+const NOT_VISIBLE_PATTERN = /^(?:I )?should not see (.+)$/i;
+const EXISTS_PATTERN = /^(.+) should exist$/i;
+const TEXT_EQUALS_PATTERN = /^(.+) should have text ["'](.+?)["']$/i;
+const TEXT_CONTAINS_PATTERN = /^(.+) should contain (?:text )?["'](.+?)["']$/i;
+const NOT_VISIBLE_FULL_PATTERN = /^(.+) should not be visible$/i;
 
 const URL_EQUALS_PATTERN = /^the url should (?:be|equal) ["'](.+?)["']$/i;
 const URL_CONTAINS_PATTERN = /^the url should contain ["'](.+?)["']$/i;
@@ -125,16 +82,7 @@ export interface CompilerError {
 export interface CompilerWarning {
   line: number;
   text: string;
-  /**
-   * Distinguishes the two categories of compile-time advisory:
-   *   - `unknown-element-kind`: a declarative step used a `{kind}` not in
-   *     the recommended vocabulary (suggests nearest matches).
-   *   - `unimplemented-step-type`: a step type was successfully parsed but
-   *     the engine has no runtime handler for it yet (suites using such
-   *     steps will fail at runtime). Covers `check`, `uncheck`, `toggle`,
-   *     `upload` — schema-complete, engine-incomplete (§11 of the plan).
-   */
-  kind: "unknown-element-kind" | "unimplemented-step-type";
+  kind: "unknown-element-kind";
   message: string;
 }
 
@@ -157,20 +105,12 @@ export interface CompileOptions {
 interface ParsedStepOrAssertion {
   step?: Step;
   assertion?: Assertion;
-  /** Raw kind extracted from the declarative form, if any. */
   kind?: string;
 }
 
 // ─── Compile entry point ─────────────────────────────────────────────────────
 
-/**
- * Compile a Gherkin feature string into TestContract(s).
- *
- * When `options.registry` is provided, every parsed `targetRef` is looked
- * up in the registry — misses produce compile errors with Levenshtein
- * suggestions (top 3 by distance). Legacy callers (no `options`) skip
- * registry verification entirely.
- */
+/** Compile a strict Gherkin feature string into TestContract(s). */
 export function compileGherkin(
   gherkin: string,
   options?: CompileOptions,
@@ -179,46 +119,59 @@ export function compileGherkin(
   const contracts: TestContract[] = [];
   const errors: CompilerError[] = [];
   const warnings: CompilerWarning[] = [];
-  const sourceFile = options?.sourceFile ?? "<anonymous>";
-  const registry = options?.registry;
+  void options?.sourceFile;
 
   let currentScenario: string | null = null;
+  let currentScenarioLine: number | null = null;
+  let currentScenarioRaw: string | null = null;
   let scenarioTags: string[] = [];
   let pendingTags: string[] = [];
   let currentSteps: Step[] = [];
   let currentAssertions: Assertion[] = [];
-  // Parallel arrays: per-item source metadata for the current scenario.
-  // Kept in lockstep with currentSteps / currentAssertions so we can
-  // report accurate {line, stepText} for any compiled item — including
-  // intermixed And-of-assertion / And-of-step sequences that a cursor-
-  // based scheme mis-aligns.
-  let currentStepLines: { line: number; raw: string }[] = [];
-  let currentAssertionLines: { line: number; raw: string }[] = [];
+  let currentScenarioHasErrors = false;
 
-  // Per-contract source metadata, in the same order as `contracts[]`.
-  const contractSources: {
-    stepLines: { line: number; raw: string }[];
-    assertionLines: { line: number; raw: string }[];
-  }[] = [];
+  const addError = (error: CompilerError): void => {
+    errors.push(error);
+    if (currentScenario) {
+      currentScenarioHasErrors = true;
+    }
+  };
 
   const flushCurrentScenario = (): void => {
+    if (!currentScenario) return;
+
     if (
-      currentScenario &&
-      currentSteps.length > 0 &&
-      currentAssertions.length > 0
+      currentScenarioHasErrors &&
+      (currentSteps.length === 0 || currentAssertions.length === 0)
     ) {
-      contracts.push({
-        intent: toSnakeCase(currentScenario),
-        description: currentScenario,
-        tags: scenarioTags.length > 0 ? [...scenarioTags] : undefined,
-        steps: [...currentSteps],
-        assertions: [...currentAssertions],
-      });
-      contractSources.push({
-        stepLines: [...currentStepLines],
-        assertionLines: [...currentAssertionLines],
-      });
+      return;
     }
+
+    if (currentSteps.length === 0) {
+      addError({
+        line: currentScenarioLine ?? 1,
+        text: currentScenarioRaw ?? `Scenario: ${currentScenario}`,
+        message: "Scenario has no steps",
+      });
+      return;
+    }
+
+    if (currentAssertions.length === 0) {
+      addError({
+        line: currentScenarioLine ?? 1,
+        text: currentScenarioRaw ?? `Scenario: ${currentScenario}`,
+        message: "Scenario has no assertions",
+      });
+      return;
+    }
+
+    contracts.push({
+      intent: toSnakeCase(currentScenario),
+      description: currentScenario,
+      tags: scenarioTags.length > 0 ? [...scenarioTags] : undefined,
+      steps: [...currentSteps],
+      assertions: [...currentAssertions],
+    });
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -241,34 +194,16 @@ export function compileGherkin(
     }
 
     if (raw.startsWith("Scenario:") || raw.startsWith("Scenario Outline:")) {
-      if (
-        currentScenario &&
-        (currentSteps.length > 0 || currentAssertions.length > 0)
-      ) {
-        if (currentSteps.length > 0 && currentAssertions.length > 0) {
-          flushCurrentScenario();
-        } else if (currentSteps.length === 0) {
-          errors.push({
-            line: lineNumber,
-            text: raw,
-            message: "Scenario has no steps",
-          });
-        } else {
-          errors.push({
-            line: lineNumber,
-            text: raw,
-            message: "Scenario has no assertions",
-          });
-        }
-      }
+      flushCurrentScenario();
 
       currentScenario = raw.replace(/^Scenario(?: Outline)?:\s*/, "");
+      currentScenarioLine = lineNumber;
+      currentScenarioRaw = raw;
       scenarioTags = [...pendingTags];
       pendingTags = [];
       currentSteps = [];
       currentAssertions = [];
-      currentStepLines = [];
-      currentAssertionLines = [];
+      currentScenarioHasErrors = false;
       continue;
     }
 
@@ -279,7 +214,7 @@ export function compileGherkin(
         !raw.startsWith("Examples:") &&
         !raw.startsWith("|")
       ) {
-        errors.push({
+        addError({
           line: lineNumber,
           text: raw,
           message: "Unrecognized line",
@@ -288,24 +223,21 @@ export function compileGherkin(
       continue;
     }
 
+    if (!currentScenario) {
+      addError({
+        line: lineNumber,
+        text: raw,
+        message: `"${parsed.keyword}" step appears before any Scenario`,
+      });
+      continue;
+    }
+
     // Try step first, then assertion. Each returns (maybe) a kind as well.
     const stepResult = parseStep(parsed.text);
     if (stepResult && stepResult.step) {
       currentSteps.push(stepResult.step);
-      currentStepLines.push({ line: lineNumber, raw });
       if (stepResult.kind !== undefined) {
         emitUnknownKindWarning(warnings, stepResult.kind, lineNumber, raw);
-      }
-      // Advisory: the grammar parses these step types but the engine
-      // has no runtime handler yet. See action-engine.ts — the switch
-      // arm throws "not yet implemented in the engine".
-      if (isUnimplementedStepType(stepResult.step.type)) {
-        emitUnimplementedStepTypeWarning(
-          warnings,
-          stepResult.step.type,
-          lineNumber,
-          raw,
-        );
       }
       continue;
     }
@@ -313,17 +245,17 @@ export function compileGherkin(
     const assertionResult = parseAssertion(parsed.text);
     if (assertionResult && assertionResult.assertion) {
       currentAssertions.push(assertionResult.assertion);
-      currentAssertionLines.push({ line: lineNumber, raw });
       if (assertionResult.kind !== undefined) {
         emitUnknownKindWarning(warnings, assertionResult.kind, lineNumber, raw);
       }
       continue;
     }
 
-    errors.push({
+    addError({
       line: lineNumber,
       text: raw,
-      message: `Could not parse "${parsed.keyword} ${parsed.text}" into a step or assertion`,
+      message: legacyTargetHint(parsed.text) ??
+        `Could not parse "${parsed.keyword} ${parsed.text}" into a step or assertion`,
     });
   }
 
@@ -350,11 +282,6 @@ function parseGherkinLine(raw: string, lineNumber: number): GherkinLine | null {
 }
 
 // ─── Step Parser ─────────────────────────────────────────────────────────────
-//
-// For every UI step that has both a declarative and a bare form, try the
-// declarative pattern FIRST. This matters because bare patterns like
-// `click (\S+)` are permissive — without the declarative pre-check they
-// would match `click the button foo` with `targetRef="the"`.
 
 function parseStep(text: string): ParsedStepOrAssertion | null {
   let match: RegExpMatchArray | null;
@@ -365,90 +292,82 @@ function parseStep(text: string): ParsedStepOrAssertion | null {
     return { step: { type: "navigate", url: match[1] } };
   }
 
-  // ── Click ─────────────────────────────────────────────────────────────
-  match = text.match(CLICK_DECLARATIVE_PATTERN);
+  match = text.match(CLICK_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { step: { type: "click", targetRef: match[2] || match[3], kind }, kind };
-  }
-  match = text.match(CLICK_BARE_PATTERN);
-  if (match) {
-    return { step: { type: "click", targetRef: match[1] || match[2] } };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { step: { type: "click", locator: target.locator }, kind: target.kind };
   }
 
-  // ── Type ──────────────────────────────────────────────────────────────
-  match = text.match(TYPE_DECLARATIVE_PATTERN);
+  match = text.match(TYPE_PATTERN);
   if (match) {
-    const kind = match[2];
+    const target = parseLocator(match[2]);
+    if (!target) return null;
     return {
-      step: { type: "type", targetRef: match[3] || match[4], value: match[1], kind },
-      kind,
+      step: { type: "type", locator: target.locator, value: match[1] },
+      kind: target.kind,
     };
   }
-  match = text.match(TYPE_BARE_PATTERN);
-  if (match) {
-    return { step: { type: "type", targetRef: match[2] || match[3], value: match[1] } };
-  }
 
-  // ── Select ────────────────────────────────────────────────────────────
-  match = text.match(SELECT_DECLARATIVE_PATTERN);
+  match = text.match(SELECT_PATTERN);
   if (match) {
-    const kind = match[2];
+    const target = parseLocator(match[2]);
+    if (!target) return null;
     return {
-      step: { type: "select", targetRef: match[3] || match[4], value: match[1], kind },
-      kind,
+      step: { type: "select", locator: target.locator, value: match[1] },
+      kind: target.kind,
     };
   }
-  match = text.match(SELECT_BARE_PATTERN);
+
+  match = text.match(WAIT_FOR_PATTERN);
   if (match) {
-    return { step: { type: "select", targetRef: match[2] || match[3], value: match[1] } };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { step: { type: "wait", locator: target.locator }, kind: target.kind };
   }
 
-  // ── Wait for <target> ────────────────────────────────────────────────
-  match = text.match(WAIT_DECLARATIVE_PATTERN);
-  if (match) {
-    const kind = match[1];
-    return { step: { type: "wait", targetRef: match[2] || match[3], kind }, kind };
-  }
-  match = text.match(WAIT_BARE_PATTERN);
-  if (match) {
-    return { step: { type: "wait", targetRef: match[1] || match[2] } };
-  }
-
-  // ── Wait Nms (no target, no kind) ───────────────────────────────────
   match = text.match(WAIT_MS_PATTERN);
   if (match) {
     return { step: { type: "wait", timeout: parseInt(match[1], 10) } };
   }
 
-  // ── Check / Uncheck / Toggle / Upload — declarative only ────────────
-  match = text.match(CHECK_DECLARATIVE_PATTERN);
+  match = text.match(CHECK_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { step: { type: "check", targetRef: match[2] || match[3], kind }, kind };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { step: { type: "check", locator: target.locator }, kind: target.kind };
   }
-  match = text.match(UNCHECK_DECLARATIVE_PATTERN);
+
+  match = text.match(UNCHECK_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { step: { type: "uncheck", targetRef: match[2] || match[3], kind }, kind };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { step: { type: "uncheck", locator: target.locator }, kind: target.kind };
   }
-  match = text.match(TOGGLE_DECLARATIVE_PATTERN);
+
+  match = text.match(TOGGLE_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { step: { type: "toggle", targetRef: match[2] || match[3], kind }, kind };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { step: { type: "toggle", locator: target.locator }, kind: target.kind };
   }
+
   match = text.match(UPLOAD_DECLARATIVE_PATTERN);
   if (match) {
-    const kind = match[2];
+    const target = parseLocator(match[2]);
+    if (!target) return null;
     return {
-      step: { type: "upload", targetRef: match[3] || match[4], value: match[1], kind },
-      kind,
+      step: { type: "upload", locator: target.locator, value: match[1] },
+      kind: target.kind,
     };
   }
 
   // ── Direct API Request Steps — order: most specific first ────────────
   match = text.match(REQUEST_WITH_BODY_AND_HEADERS_PATTERN);
   if (match) {
+    const headers = tryParseStringRecord(match[4]);
+    if (!headers) return null;
+
     return {
       step: {
         type: "request",
@@ -460,7 +379,7 @@ function parseStep(text: string): ParsedStepOrAssertion | null {
           | "DELETE",
         url: match[2],
         body: match[3],
-        headers: tryParseJSON(match[4]),
+        headers,
       },
     };
   }
@@ -501,96 +420,63 @@ function parseStep(text: string): ParsedStepOrAssertion | null {
 function parseAssertion(text: string): ParsedStepOrAssertion | null {
   let match: RegExpMatchArray | null;
 
-  // ── visible / "should see" ──────────────────────────────────────────
-  match = text.match(VISIBLE_DECLARATIVE_PATTERN);
+  const nonUiAssertion = parseNonUiAssertion(text);
+  if (nonUiAssertion) return nonUiAssertion;
+
+  match = text.match(VISIBLE_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { assertion: { type: "visible", targetRef: match[2] || match[3], kind }, kind };
-  }
-  match = text.match(VISIBLE_BARE_PATTERN);
-  if (match) {
-    return { assertion: { type: "visible", targetRef: match[1] || match[2] } };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { assertion: { type: "visible", locator: target.locator }, kind: target.kind };
   }
 
-  // ── not visible / "should not see" ─────────────────────────────────
-  match = text.match(NOT_VISIBLE_DECLARATIVE_PATTERN);
+  match = text.match(NOT_VISIBLE_PATTERN);
   if (match) {
-    const kind = match[1];
-    return {
-      assertion: { type: "not_visible", targetRef: match[2] || match[3], kind },
-      kind,
-    };
-  }
-  match = text.match(NOT_VISIBLE_BARE_PATTERN);
-  if (match) {
-    return { assertion: { type: "not_visible", targetRef: match[1] || match[2] } };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { assertion: { type: "not_visible", locator: target.locator }, kind: target.kind };
   }
 
-  // ── "should not be visible" (declarative only) ─────────────────────
-  match = text.match(NOT_VISIBLE_DECLARATIVE_FULL_PATTERN);
+  match = text.match(NOT_VISIBLE_FULL_PATTERN);
   if (match) {
-    const kind = match[1];
-    return {
-      assertion: { type: "not_visible", targetRef: match[2] || match[3], kind },
-      kind,
-    };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { assertion: { type: "not_visible", locator: target.locator }, kind: target.kind };
   }
 
-  // ── text_equals ─────────────────────────────────────────────────────
-  match = text.match(TEXT_EQUALS_DECLARATIVE_PATTERN);
+  match = text.match(TEXT_EQUALS_PATTERN);
   if (match) {
-    const kind = match[1];
+    const target = parseLocator(match[1]);
+    if (!target) return null;
     return {
       assertion: {
         type: "text_equals",
-        targetRef: match[2] || match[3],
-        value: match[4],
-        kind,
+        locator: target.locator,
+        value: match[2],
       },
-      kind,
-    };
-  }
-  match = text.match(TEXT_EQUALS_BARE_PATTERN);
-  if (match) {
-    return {
-      assertion: { type: "text_equals", targetRef: match[1] || match[2], value: match[3] },
+      kind: target.kind,
     };
   }
 
-  // ── text_contains ───────────────────────────────────────────────────
-  match = text.match(TEXT_CONTAINS_DECLARATIVE_PATTERN);
+  match = text.match(TEXT_CONTAINS_PATTERN);
   if (match) {
-    const kind = match[1];
+    const target = parseLocator(match[1]);
+    if (!target) return null;
     return {
       assertion: {
         type: "text_contains",
-        targetRef: match[2] || match[3],
-        value: match[4],
-        kind,
+        locator: target.locator,
+        value: match[2],
       },
-      kind,
-    };
-  }
-  match = text.match(TEXT_CONTAINS_BARE_PATTERN);
-  if (match) {
-    return {
-      assertion: {
-        type: "text_contains",
-        targetRef: match[1] || match[2],
-        value: match[3],
-      },
+      kind: target.kind,
     };
   }
 
-  // ── exists ──────────────────────────────────────────────────────────
-  match = text.match(EXISTS_DECLARATIVE_PATTERN);
+  match = text.match(EXISTS_PATTERN);
   if (match) {
-    const kind = match[1];
-    return { assertion: { type: "exists", targetRef: match[2] || match[3], kind }, kind };
-  }
-  match = text.match(EXISTS_BARE_PATTERN);
-  if (match) {
-    return { assertion: { type: "exists", targetRef: match[1] || match[2] } };
+    const target = parseLocator(match[1]);
+    if (!target) return null;
+    return { assertion: { type: "exists", locator: target.locator }, kind: target.kind };
   }
 
   // ── URL assertions (no kind) ───────────────────────────────────────
@@ -659,6 +545,197 @@ function parseAssertion(text: string): ParsedStepOrAssertion | null {
   return null;
 }
 
+function parseNonUiAssertion(text: string): ParsedStepOrAssertion | null {
+  let match: RegExpMatchArray | null;
+
+  match = text.match(URL_EQUALS_PATTERN);
+  if (match) {
+    return { assertion: { type: "url_equals", value: match[1] } };
+  }
+
+  match = text.match(URL_CONTAINS_PATTERN);
+  if (match) {
+    return { assertion: { type: "url_contains", value: match[1] } };
+  }
+
+  match = text.match(STATUS_CODE_PATTERN);
+  if (match) {
+    return {
+      assertion: {
+        type: "status_code",
+        url: match[1],
+        value: parseInt(match[2], 10),
+      },
+    };
+  }
+
+  match = text.match(RESPONSE_BODY_CONTAINS_PATTERN);
+  if (match) {
+    return {
+      assertion: {
+        type: "response_body_contains",
+        url: match[1],
+        value: match[2],
+      },
+    };
+  }
+
+  match = text.match(RESPONSE_BODY_EQUALS_PATTERN);
+  if (match) {
+    return {
+      assertion: {
+        type: "response_body_equals",
+        url: match[1],
+        path: match[2],
+        value: match[3],
+      },
+    };
+  }
+
+  match = text.match(RESPONSE_HEADER_CONTAINS_PATTERN);
+  if (match) {
+    return {
+      assertion: {
+        type: "response_header_contains",
+        url: match[2],
+        header: match[1],
+        value: match[3],
+      },
+    };
+  }
+
+  match = text.match(TRACE_ID_PRESENT_PATTERN);
+  if (match) {
+    return { assertion: { type: "trace_id_present", url: match[1] } };
+  }
+
+  return null;
+}
+
+// ─── Locator Parser ─────────────────────────────────────────────────────────
+
+interface ParsedLocator {
+  locator: LocatorSpec;
+  kind?: string;
+}
+
+const ROLE_BY_KIND: Record<string, AriaRole> = {
+  button: "button",
+  submit: "button",
+  "icon-button": "button",
+  link: "link",
+  heading: "heading",
+  checkbox: "checkbox",
+  radio: "radio",
+  toggle: "switch",
+  tab: "tab",
+  menu: "menu",
+  "menu-item": "menuitem",
+  dialog: "dialog",
+  alert: "alert",
+  table: "table",
+  row: "row",
+  cell: "cell",
+  list: "list",
+  form: "form",
+};
+
+const LABEL_KINDS = new Set(["field", "input", "select", "file-input"]);
+const TEXT_KINDS = new Set([
+  "text",
+  "label",
+  "page",
+  "section",
+  "panel",
+  "card",
+  "sidebar",
+  "header",
+  "footer",
+  "container",
+  "breadcrumb",
+  "badge",
+  "value",
+  "toast",
+  "error",
+  "spinner",
+  "skeleton",
+  "empty",
+  "image",
+  "icon",
+  "avatar",
+]);
+
+function parseLocator(raw: string): ParsedLocator | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  if (text.startsWith("testid:")) {
+    const id = text.slice("testid:".length).trim();
+    return id ? { locator: { strategy: "testid", id } } : null;
+  }
+
+  if (text.startsWith("css:")) {
+    const selector = text.slice("css:".length).trim();
+    return selector ? { locator: { strategy: "css", selector } } : null;
+  }
+
+  const quoted = text.match(/^["'](.+?)["']$/);
+  if (quoted) {
+    return { locator: { strategy: "text", text: quoted[1] } };
+  }
+
+  const semantic = text.match(/^(?:the\s+)?([a-z][a-z0-9-]*)\s+["'](.+?)["']$/i);
+  if (!semantic) return null;
+
+  const kind = semantic[1].toLowerCase();
+  const name = semantic[2];
+
+  if (LABEL_KINDS.has(kind)) {
+    return { locator: { strategy: "label", name }, kind };
+  }
+
+  if (kind === "placeholder") {
+    return { locator: { strategy: "placeholder", text: name }, kind };
+  }
+
+  const role = ROLE_BY_KIND[kind];
+  if (role) {
+    return { locator: { strategy: "role", role, name }, kind };
+  }
+
+  if (TEXT_KINDS.has(kind)) {
+    return { locator: { strategy: "text", text: name }, kind };
+  }
+
+  return { locator: { strategy: "text", text: name }, kind };
+}
+
+function legacyTargetHint(text: string): string | null {
+  const legacyAction = text.match(/^(?:I )?(click|wait for|check|uncheck|toggle)\s+([A-Za-z0-9_-]+)$/i);
+  if (legacyAction) {
+    return `Legacy raw target "${legacyAction[2]}" is no longer accepted. Use semantic Gherkin like ` +
+      `"${legacyAction[1]} the button "Visible name"" or an explicit fallback like ` +
+      `"${legacyAction[1]} testid:${legacyAction[2]}".`;
+  }
+
+  const legacyType = text.match(/^(?:I )?(type|select)\s+["'](.+?)["']\s+(?:into|in)\s+([A-Za-z0-9_-]+)$/i);
+  if (legacyType) {
+    return `Legacy raw target "${legacyType[3]}" is no longer accepted. Use a semantic target like ` +
+      `"${legacyType[1]} "${legacyType[2]}" into the field "Visible label"" or ` +
+      `an explicit fallback like "${legacyType[1]} "${legacyType[2]}" into testid:${legacyType[3]}".`;
+  }
+
+  const legacyAssertion = text.match(/^(?:I )?should (?:not )?see\s+([A-Za-z0-9_-]+)$/i) ??
+    text.match(/^([A-Za-z0-9_-]+) should (?:exist|have text|contain|not be visible)/i);
+  if (legacyAssertion) {
+    return `Legacy raw target "${legacyAssertion[1]}" is no longer accepted. Use semantic Gherkin like ` +
+      `"Then I should see the heading "Visible name"" or an explicit fallback like ` +
+      `"Then I should see testid:${legacyAssertion[1]}".`;
+  }
+
+  return null;
+}
+
 // ─── Warnings: unknown-element-kind ─────────────────────────────────────────
 
 function emitUnknownKindWarning(
@@ -679,44 +756,11 @@ function emitUnknownKindWarning(
   const message =
     `Unknown element kind "${kind}" — not in the recommended vocabulary. ` +
     `Did you mean:\n${suggestionText}\n` +
-    `If this is intentional, add it to packages/qa-agent/src/modules/dsl/element-kinds.ts ` +
+    `If this is intentional, add it to src/modules/dsl/element-kinds.ts ` +
     `and regenerate the docs.`;
 
   warnings.push({ line, text, kind: "unknown-element-kind", message });
 }
-
-// ─── Warnings: unimplemented-step-type ──────────────────────────────────────
-
-/**
- * Step types that the grammar/schema support but the runtime engine does
- * not yet execute. Keep in sync with the `check | uncheck | toggle |
- * upload` arm in action-engine.ts::performAction.
- */
-const UNIMPLEMENTED_STEP_TYPES = new Set<Step["type"]>([
-  "check",
-  "uncheck",
-  "toggle",
-  "upload",
-]);
-
-function isUnimplementedStepType(type: Step["type"]): boolean {
-  return UNIMPLEMENTED_STEP_TYPES.has(type);
-}
-
-function emitUnimplementedStepTypeWarning(
-  warnings: CompilerWarning[],
-  stepType: Step["type"],
-  line: number,
-  text: string,
-): void {
-  const message =
-    `step type "${stepType}" is parseable but not yet executable; ` +
-    `suites using this step will fail at runtime. See ` +
-    `artifacts/analysis/qa-agent-grammar-migration-plan.md §11.`;
-  warnings.push({ line, text, kind: "unimplemented-step-type", message });
-}
-
-// ─── Registry verification (PR 7) ────────────────────────────────────────────
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -732,15 +776,16 @@ function toSnakeCase(str: string): string {
 
 /**
  * Try to parse a JSON string into a Record<string, string>.
- * Returns undefined if parsing fails.
+ * Returns undefined if parsing fails or any value is not a string.
  */
-function tryParseJSON(str: string): Record<string, string> | undefined {
+function tryParseStringRecord(str: string): Record<string, string> | undefined {
   try {
     const parsed = JSON.parse(str);
     if (
       typeof parsed === "object" &&
       parsed !== null &&
-      !Array.isArray(parsed)
+      !Array.isArray(parsed) &&
+      Object.values(parsed).every((value) => typeof value === "string")
     ) {
       return parsed as Record<string, string>;
     }
