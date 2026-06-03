@@ -5,7 +5,7 @@
 // gherkin-step-syntax.md §Element-Kind Vocabulary`).
 //
 // The markdown reference is regenerated from this module by
-// `packages/qa-agent/scripts/generate-element-kinds-doc.mjs`. Do not hand-edit
+// `scripts/generate-element-kinds-doc.mjs`. Do not hand-edit
 // the markdown tables between the BEGIN/END markers — edit this file and
 // re-run the generator.
 //
@@ -91,6 +91,11 @@ export const ELEMENT_KINDS: readonly ElementKindDef[] = [
   },
   // Forms
   {
+    kind: "field",
+    category: "forms",
+    description: "A form control addressed by visible label",
+  },
+  {
     kind: "form",
     category: "forms",
     description: "`<form>` element or form container",
@@ -109,6 +114,11 @@ export const ELEMENT_KINDS: readonly ElementKindDef[] = [
   { kind: "radio", category: "forms", description: "Radio button input" },
   { kind: "toggle", category: "forms", description: "Toggle / switch control" },
   { kind: "file-input", category: "forms", description: "File upload input" },
+  {
+    kind: "placeholder",
+    category: "forms",
+    description: "Input addressed by placeholder text",
+  },
   // Actions
   { kind: "button", category: "actions", description: "`<button>` element" },
   {
@@ -132,6 +142,7 @@ export const ELEMENT_KINDS: readonly ElementKindDef[] = [
     category: "data",
     description: "`<h1>`–`<h6>` or prominent heading text",
   },
+  { kind: "text", category: "data", description: "Visible text content" },
   { kind: "label", category: "data", description: "Descriptive label" },
   { kind: "badge", category: "data", description: "Status badge or tag" },
   {

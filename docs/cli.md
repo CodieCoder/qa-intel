@@ -1,43 +1,46 @@
 # CLI Runner
 
-The CLI runner (`src/cli.ts`) executes test suites and outputs structured JSON. Designed for agent-to-agent consumption — no ANSI formatting, no interactive commands.
+The CLI executes strict Gherkin features or compiled `suite.json` files and prints JSON to stdout.
 
 ## Usage
 
 ```bash
-# Run from JSON files
-qa-runner <suite.json> <contracts.json> [flags]
-
-# Run directly from Gherkin
-qa-runner <feature-file> <contracts.json> [flags]
-
-# Compile Gherkin to JSON (without running)
+# Compile Gherkin to suite.json
 qa-runner compile <feature-file> [flags]
+
+# Run compiled suite JSON
+qa-runner run <suite.json> [flags]
+
+# Compile and run directly
+qa-runner <feature-file> [flags]
 ```
 
-## Run Flags
+`contracts.json` is no longer generated or accepted.
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--base-url <url>` | `string` | From suite.json | Override the suite's base URL |
-| `--headed` | `boolean` | `false` | Show browser window (for debugging) |
-| `--fail-fast` | `boolean` | `false` | Stop on first contract failure |
-| `--artifact-dir <dir>` | `string` | `.qa-results/artifacts` | Directory for screenshot PNG files |
-| `--results-db <path>` | `string` | `.qa-results/results.db` | SQLite DB path for persistent results (13 normalized tables) |
+## Flags
 
-## Compile Flags
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--base-url <url>` | `http://localhost:3002` for compile/direct run; suite value for `run` | Base URL for relative navigation/API calls |
+| `--headed` | `false` | Show the browser |
+| `--fail-fast` | `false` | Stop after first failed contract |
+| `--artifact-dir <dir>` | `.qa-results/artifacts` | Screenshot/artifact directory |
+| `--results-db <path>` | `.qa-results/results.db` | SQLite persistence path |
+| `--auto-heal` | `false` | Enable experimental LLM locator healing |
+| `--name <name>` | filename-derived | Compile-only suite name |
+| `--out-dir <dir>` | `.qa-results/compile` | Compile-only output directory |
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--name <name>` | `string` | Derived from filename | Suite name |
-| `--base-url <url>` | `string` | `http://localhost:3002` | Base URL |
-| `--out-dir <dir>` | `string` | `.` | Output directory for suite.json + contracts.json |
+## Examples
 
-## Output Format
+```bash
+qa-runner compile examples/login.feature --base-url http://localhost:3002
+qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
+qa-runner examples/login.feature --base-url http://localhost:3002 --headed
+```
 
-All output is JSON to stdout.
+## Output
 
-### Run Output
+All output is JSON:
 
 ```json
 {
@@ -45,111 +48,15 @@ All output is JSON to stdout.
   "data": {
     "runId": "uuid",
     "traceId": "uuid",
-    "status": "passed" | "failed",
+    "status": "passed",
     "summary": {
-      "totalContracts": 3,
-      "passed": 2,
-      "failed": 1
+      "totalContracts": 1,
+      "passed": 1,
+      "failed": 0
     },
-    "contracts": [
-      {
-        "intent": "login_with_valid_credentials",
-        "status": "passed" | "failed" | "error",
-        "durationMs": 1200,
-        "steps": [
-          {
-            "stepId": "trace-c0-step-0",
-            "type": "navigate",
-            "status": "passed",
-            "durationMs": 500,
-            "targetRef": "login-form",
-            "selector": "[data-testid=login-form]",
-            "value": "admin@test.com",
-            "artifacts": {
-              "beforeScreenshot": ".qa-results/artifacts/trace-c0/step-0-before.png",
-              "afterScreenshot": ".qa-results/artifacts/trace-c0/step-0-after.png",
-              "domSnapshot": "<html>...</html>"
-            }
-          }
-        ],
-        "assertions": [...],
-        "failure": {
-          "layer": "ui" | "api" | "business",
-          "rootCause": "element not found",
-          "causedByStep": "trace-c0-step-2"
-        },
-        "failures": [
-          {
-            "intent": "login_with_valid_credentials",
-            "layer": "ui",
-            "issue": "element not found within 5000ms",
-            "fixHints": [
-              { "type": "frontend", "suggestion": "Add data-testid=\"dashboard-container\"" }
-            ]
-          }
-        ]
-      }
-    ],
-    "failures": [...]
+    "contracts": []
   }
 }
 ```
 
-### Compile Output
-
-```json
-{
-  "ok": true,
-  "suite": "tests/suite.json",
-  "contracts": "tests/contracts.json",
-  "stats": {
-    "contracts": 3,
-    "targets": 12,
-    "errors": 0
-  }
-}
-```
-
-### Error Output
-
-```json
-{
-  "ok": false,
-  "error": "description of what went wrong"
-}
-```
-
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | All tests passed |
-| `1` | One or more tests failed |
-| `2` | Fatal error (bad input, crash) |
-
-## Screenshots
-
-Every step writes before/after PNG screenshots to the artifact directory (default `.qa-results/artifacts/`). File paths are included in the JSON output under `steps[].artifacts.beforeScreenshot` and `steps[].artifacts.afterScreenshot`.
-
-A final page screenshot is also captured at `.qa-results/artifacts/{traceId}/final.png`.
-
-## Step Execution Context
-
-Each step in the output includes the execution context that was used:
-
-| Field | Description |
-|-------|-------------|
-| `targetRef` | The logical target name from the contract (e.g. `login-submit`) |
-| `selector` | The resolved CSS selector (e.g. `[data-testid=login-submit]`) |
-| `value` | The input value for type/select steps (e.g. `admin@test.com`) |
-| `artifacts.domSnapshot` | Full DOM snapshot captured on failure (`page.content()`) |
-
-## Diagnostic Data (SQLite only)
-
-The following data is captured during execution and persisted to the SQLite database (`.qa-results/results.db`) but is **not** included in the JSON stdout output:
-
-- **Network logs**: Full HTTP request/response traffic per contract (method, url, status, headers, bodies)
-- **Console logs**: Browser console output per step (`console.log`, `console.error`, `console.warn`, etc.)
-- **JS errors**: Uncaught JavaScript exceptions (`pageerror` level in `console_logs` table)
-
-Query these from the DB for post-hoc debugging. See the README for the `ResultStore` API.
+Step and assertion diagnostics use human-readable locator descriptions such as `button "Log in"`, `field "Email"`, `testid:login-submit`, or `css:[data-state='ready']`.

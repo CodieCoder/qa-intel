@@ -19,6 +19,8 @@ export interface EngineConfig {
   slowMo: number;
   /** Viewport dimensions */
   viewport: { width: number; height: number };
+  /** Enable experimental LLM locator healing after normal retries fail */
+  autoHeal: boolean;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -30,6 +32,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   headless: true,
   slowMo: 0,
   viewport: { width: 1280, height: 720 },
+  autoHeal: false,
 };
 
 export interface EngineContext {

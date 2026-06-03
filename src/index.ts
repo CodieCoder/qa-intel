@@ -7,6 +7,19 @@ export * from "./modules/types/index.js";
 // Note: DSL has its own AssertionResult (internal engine result) which
 // conflicts with the V2 AssertionResult from types. Re-export explicitly.
 export {
+  // ARIA role vocabulary
+  ARIA_ROLES,
+  AriaRoleSchema,
+
+  // Locator schemas
+  RoleLocatorSchema,
+  LabelLocatorSchema,
+  PlaceholderLocatorSchema,
+  TextLocatorSchema,
+  TestIdLocatorSchema,
+  CssLocatorSchema,
+  LocatorSpecSchema,
+
   // Step schemas
   NavigateStepSchema,
   ClickStepSchema,
@@ -40,7 +53,15 @@ export {
   TestSuiteSchema,
 
   // Types
+  type RoleLocator,
   type NavigateStep,
+  type AriaRole,
+  type LabelLocator,
+  type PlaceholderLocator,
+  type TextLocator,
+  type TestIdLocator,
+  type CssLocator,
+  type LocatorSpec,
   type ClickStep,
   type TypeStep,
   type SelectStep,
@@ -120,14 +141,5 @@ export * from "./modules/generators/index.js";
 // Engine: ActionEngine + v2 tool functions
 export * from "./modules/engine/index.js";
 
-// Registry: static testid registry (scanner + lookup)
-export {
-  buildRegistry,
-  buildRegistryFromEntries,
-  scanSource,
-  canonicalPath,
-  relativeForReporting,
-  type RegistryEntry,
-  type TestidRegistry,
-  type BuildRegistryOptions,
-} from "./modules/registry/index.js";
+// Locators: shared semantic locator helpers
+export * from "./modules/locators/index.js";

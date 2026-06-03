@@ -9,7 +9,7 @@ See [CLI Runner](cli.md) for all flags.
 ## RunSuiteInput (Programmatic)
 
 ```typescript
-import { runSuiteTool } from "@repo/qa-agent";
+import { runSuiteTool } from "@codie/qa-agent";
 
 const result = await runSuiteTool({
   suite: suiteJSON,          // TestSuite object or raw JSON

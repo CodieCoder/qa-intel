@@ -51,8 +51,8 @@ describe("ResultStore: normalized table roundtrip", () => {
               type: "type",
               status: "passed",
               durationMs: 300,
-              targetRef: "login-email",
-              selector: "[data-testid=login-email]",
+              targetRef: 'field "Email"',
+              selector: 'field "Email"',
               value: "admin@test.com",
               artifacts: {
                 beforeScreenshot: "/abs/path/step-1-before.png",
@@ -64,12 +64,12 @@ describe("ResultStore: normalized table roundtrip", () => {
               type: "click",
               status: "failed",
               durationMs: 5000,
-              targetRef: "login-submit",
-              selector: "[data-testid=login-submit]",
+              targetRef: 'button "Log in"',
+              selector: 'button "Log in"',
               error: {
                 type: "ELEMENT_NOT_FOUND",
                 message: "element not found within 5000ms",
-                details: { attemptedSelector: "[data-testid=login-submit]", retries: 3 },
+                details: { attemptedSelector: 'button "Log in"', retries: 3 },
               },
               artifacts: {
                 beforeScreenshot: "/abs/path/step-2-before.png",
@@ -83,12 +83,12 @@ describe("ResultStore: normalized table roundtrip", () => {
               assertionId: "trace-001-assert-0",
               domain: "ui",
               type: "visible",
-              targetRef: "dashboard-container",
+              targetRef: 'heading "Dashboard"',
               status: "failed",
               expected: true,
               actual: false,
               diagnostics: {
-                selector: "[data-testid=dashboard-container]",
+                selector: 'heading "Dashboard"',
                 found: false,
               },
             },
@@ -113,16 +113,16 @@ describe("ResultStore: normalized table roundtrip", () => {
               intent: "login_with_valid_credentials",
               layer: "ui",
               issue: "element not found within 5000ms",
-              location: "step: click (login-submit)",
+              location: 'step: click (button "Log in")',
               fixHints: [
                 {
                   type: "frontend",
-                  suggestion: 'Add element with data-testid="login-submit"',
+                  suggestion: 'Ensure the control has an accessible name "Log in"',
                   target: { file: "src/components/LoginForm.tsx", function: "LoginForm" },
                 },
                 {
                   type: "test",
-                  suggestion: "Check that the targetRef matches the actual data-testid",
+                  suggestion: "Check that the locator matches the user-visible UI",
                 },
               ],
             },
@@ -134,16 +134,16 @@ describe("ResultStore: normalized table roundtrip", () => {
           intent: "login_with_valid_credentials",
           layer: "ui",
           issue: "element not found within 5000ms",
-          location: "step: click (login-submit)",
+          location: 'step: click (button "Log in")',
           fixHints: [
             {
               type: "frontend",
-              suggestion: 'Add element with data-testid="login-submit"',
+              suggestion: 'Ensure the control has an accessible name "Log in"',
               target: { file: "src/components/LoginForm.tsx", function: "LoginForm" },
             },
             {
               type: "test",
-              suggestion: "Check that the targetRef matches the actual data-testid",
+              suggestion: "Check that the locator matches the user-visible UI",
             },
           ],
         },
@@ -163,8 +163,8 @@ describe("ResultStore: normalized table roundtrip", () => {
 
     // Step 1 — step context round-trips
     const s1 = c.steps[1];
-    assert.equal(s1.targetRef, "login-email");
-    assert.equal(s1.selector, "[data-testid=login-email]");
+    assert.equal(s1.targetRef, 'field "Email"');
+    assert.equal(s1.selector, 'field "Email"');
     assert.equal(s1.value, "admin@test.com");
 
     // Step 2 — error details from key-value table (no JSON)
@@ -173,7 +173,7 @@ describe("ResultStore: normalized table roundtrip", () => {
     assert.equal(s2.error.type, "ELEMENT_NOT_FOUND");
     assert.equal(s2.error.message, "element not found within 5000ms");
     assert.ok(s2.error.details);
-    assert.equal(s2.error.details.attemptedSelector, "[data-testid=login-submit]");
+    assert.equal(s2.error.details.attemptedSelector, 'button "Log in"');
     assert.equal(s2.error.details.retries, 3); // number round-trips via parseScalar
     assert.equal(s2.artifacts.domSnapshot, "<html><body>...</body></html>");
 
@@ -183,7 +183,7 @@ describe("ResultStore: normalized table roundtrip", () => {
     assert.equal(a0.expected, true); // primitive round-trips via _value key
     assert.equal(a0.actual, false);
     assert.ok(a0.diagnostics);
-    assert.equal(a0.diagnostics.selector, "[data-testid=dashboard-container]");
+    assert.equal(a0.diagnostics.selector, 'heading "Dashboard"');
     assert.equal(a0.diagnostics.found, false);
 
     // Assertion 1 — object expected/actual round-trips via dot-notation flatten
@@ -202,7 +202,7 @@ describe("ResultStore: normalized table roundtrip", () => {
     const failedSteps = store.getFailedSteps("run-001");
     assert.equal(failedSteps.length, 1);
     assert.equal(failedSteps[0].stepId, "trace-001-c0-step-2");
-    assert.equal(failedSteps[0].targetRef, "login-submit");
+    assert.equal(failedSteps[0].targetRef, 'button "Log in"');
 
     console.log("  PASS: Full roundtrip with all normalized tables verified");
   });

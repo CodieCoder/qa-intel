@@ -17,34 +17,36 @@
 <div id="login-page">
   <h1>Login</h1>
   <div class="form-group">
-    <input type="email" data-testid="email-input" placeholder="Email" />
+    <label for="email-input">Email</label>
+    <input id="email-input" type="email" placeholder="Email" />
   </div>
   <div class="form-group">
-    <input type="password" data-testid="password-input" placeholder="Password" />
+    <label for="password-input">Password</label>
+    <input id="password-input" type="password" placeholder="Password" />
   </div>
-  <button data-testid="login-btn" onclick="handleLogin()">Login</button>
-  <div data-testid="error-message" class="error"></div>
+  <button onclick="handleLogin()">Login</button>
+  <div role="alert" class="error"></div>
 </div>
 
 <!-- Dashboard Page -->
-<div data-testid="dashboard" class="dashboard">
-  <h1 data-testid="welcome-text">Welcome to Dashboard</h1>
+<div id="dashboard" class="dashboard">
+  <h1>Welcome to Dashboard</h1>
   <p>You are logged in.</p>
 </div>
 
 <script>
 function handleLogin() {
-  const email = document.querySelector('[data-testid="email-input"]').value;
-  const password = document.querySelector('[data-testid="password-input"]').value;
+  const email = document.getElementById('email-input').value;
+  const password = document.getElementById('password-input').value;
 
   if (email === 'test@example.com' && password === 'password123') {
     // Successful login
     document.getElementById('login-page').style.display = 'none';
-    document.querySelector('[data-testid="dashboard"]').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'block';
     history.pushState({}, '', '/dashboard');
   } else {
     // Failed login
-    const errorEl = document.querySelector('[data-testid="error-message"]');
+    const errorEl = document.querySelector('[role="alert"]');
     errorEl.textContent = 'Invalid email or password';
     errorEl.style.display = 'block';
   }

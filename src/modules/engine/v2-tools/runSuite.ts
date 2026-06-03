@@ -7,7 +7,7 @@ import type {
 } from "../../types/index.js";
 import type { NetworkEntry } from "../../logger/index.js";
 import type { ConsoleLogEntry } from "../action-engine.js";
-import { parseTestSuite, compileGherkin } from "../../dsl/index.js";
+import { parseTestSuite, compileGherkin, type TestSuite } from "../../dsl/index.js";
 import { TestLogger } from "../../logger/index.js";
 import { ResultStore } from "../../store/index.js";
 import { executeContractTool } from "./executeContract.js";
@@ -58,7 +58,20 @@ export async function runSuiteTool(
 
     const validated = parseTestSuite(suite);
 
-    const baseUrl = input.baseUrl ?? validated.baseUrl ?? "";
+    const baseUrl = input.baseUrl ?? validated.baseUrl;
+    const relativeUrls = baseUrl ? [] : collectRelativeStepUrls(validated);
+    if (relativeUrls.length > 0) {
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "A baseUrl is required when suite steps use relative URLs. " +
+            `Missing baseUrl for: ${relativeUrls.slice(0, 3).join(", ")}`,
+        },
+      };
+    }
+
     const failFast = input.config?.failFast ?? false;
     const artifactDir = input.artifactDir ?? ".qa-results/artifacts";
 
@@ -80,8 +93,9 @@ export async function runSuiteTool(
         {
           traceId: contractTraceId,
           contract,
-          baseUrl,
+          baseUrl: baseUrl ?? "",
           artifactDir,
+          config: input.config,
         },
         logger
       );
@@ -174,4 +188,26 @@ export async function runSuiteTool(
       },
     };
   }
+}
+
+function collectRelativeStepUrls(suite: TestSuite): string[] {
+  const urls: string[] = [];
+
+  for (const contract of suite.contracts) {
+    for (const step of contract.steps) {
+      if (
+        (step.type === "navigate" || step.type === "request") &&
+        isRelativeStepUrl(step.url)
+      ) {
+        urls.push(step.url);
+      }
+    }
+  }
+
+  return [...new Set(urls)];
+}
+
+function isRelativeStepUrl(url: string): boolean {
+  if (url.startsWith("//")) return false;
+  return !/^(?:https?:|file:|data:|about:)/i.test(url);
 }

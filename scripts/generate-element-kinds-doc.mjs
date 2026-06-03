@@ -64,7 +64,7 @@ async function loadModule() {
   if (!existsSync(distPath)) {
     console.error(
       `ERROR: Cannot find built module at ${distPath}.\n` +
-        "Run `yarn workspace @repo/qa-agent build` (or `pnpm --filter @repo/qa-agent build`) first.",
+        "Run `yarn workspace @codie/qa-agent build` (or `pnpm --filter @codie/qa-agent build`) first.",
     );
     process.exit(2);
   }

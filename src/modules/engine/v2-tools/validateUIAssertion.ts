@@ -1,6 +1,7 @@
 import type { ValidateUIAssertionInput, ValidateUIAssertionOutput } from "../../types/index.js";
 import { AssertionEngine } from "../../assertions/index.js";
 import { EngineManager } from "./engine-manager.js";
+import { describeLocator } from "../../locators/index.js";
 
 export async function validateUIAssertionTool(
   input: ValidateUIAssertionInput
@@ -27,7 +28,7 @@ export async function validateUIAssertionTool(
   // V2 assertion matches DSL format directly now — no adapter needed
   const dslAssertion: any = {
     type: input.assertion.type,
-    targetRef: input.assertion.targetRef,
+    locator: input.assertion.locator,
     value: input.assertion.value,
   };
 
@@ -40,13 +41,13 @@ export async function validateUIAssertionTool(
         assertionId,
         domain: "ui",
         type: input.assertion.type,
-        targetRef: input.assertion.targetRef,
+        targetRef: input.assertion.locator ? describeLocator(input.assertion.locator) : undefined,
         status: result.status,
         expected: result.expected ?? input.assertion.value,
         actual: result.actual,
-        diagnostics: input.assertion.targetRef
+        diagnostics: input.assertion.locator
           ? {
-              selector: input.assertion.targetRef,
+              selector: describeLocator(input.assertion.locator),
               found: result.status === "passed",
             }
           : undefined,
