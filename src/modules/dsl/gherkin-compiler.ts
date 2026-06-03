@@ -718,25 +718,6 @@ function emitUnimplementedStepTypeWarning(
 
 // ─── Registry verification (PR 7) ────────────────────────────────────────────
 
-interface VerifyArgs {
-  contracts: TestContract[];
-  /**
-   * Per-contract source metadata produced during parsing. `stepLines[i]`
-   * is aligned with `contracts[i].steps[i]`, and likewise for
-   * `assertionLines[i]` / `contracts[i].assertions[i]`. This sidesteps
-   * the brittle cursor-over-source-lines scheme that mis-aligns when
-   * `And` intermixes steps and assertions in a single scenario.
-   */
-  contractSources: {
-    stepLines: { line: number; raw: string }[];
-    assertionLines: { line: number; raw: string }[];
-  }[];
-  errors: CompilerError[];
-  registry: TestidRegistry;
-  sourceFile: string;
-}
-}
-
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

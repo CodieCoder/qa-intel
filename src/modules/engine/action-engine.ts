@@ -7,6 +7,10 @@ import {
 import type { Step } from "../dsl/index.js";
 import { AutoHealer, type HealingContext } from "../auto-healing/index.js";
 import {
+  TestLogger,
+  type StepEvent,
+  type ConsoleLogEntry,
+} from "../logger/index.js";
 import {
   type EngineConfig,
   type ActionResult,
