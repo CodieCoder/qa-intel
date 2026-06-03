@@ -173,7 +173,7 @@ export async function runSuiteTool(
       } catch (dbErr) {
         // Non-fatal: log to stderr so it doesn't pollute JSON stdout
         const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
-        process.stderr.write(`[qa-agent] Warning: failed to persist results to DB: ${msg}\n`);
+        process.stderr.write(`[qa-intel] Warning: failed to persist results to DB: ${msg}\n`);
       }
     }
 

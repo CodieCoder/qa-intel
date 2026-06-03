@@ -9,7 +9,7 @@
  *
  * ### As a compile-time generator set
  * ```ts
- * import { createGeneratorContext } from "@codie/qa-agent";
+ * import { createGeneratorContext } from "@codie/qa-intel";
  *
  * const ctx = createGeneratorContext();
  * const username = ctx.resolve("username"); // "qa_1776113402750_a1b2c3"
@@ -26,7 +26,7 @@
  *
  * ### Standalone (no context)
  * ```ts
- * import { generators } from "@codie/qa-agent";
+ * import { generators } from "@codie/qa-intel";
  * generators.username(); // new value each call
  * generators.password(); // new value each call
  * ```

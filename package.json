@@ -1,8 +1,8 @@
 {
-  "name": "@codie/qa-agent",
+  "name": "@codie/qa-intel",
   "version": "0.0.0",
   "private": true,
-  "description": "Portable QA agent — Gherkin to validated features via Playwright",
+  "description": "Portable QA intel — Gherkin to validated features via Playwright",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

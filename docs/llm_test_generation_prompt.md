@@ -1,11 +1,11 @@
 # LLM Test Generation Prompt
 
-Use this prompt when asking an LLM to generate tests for qa-agent.
+Use this prompt when asking an LLM to generate tests for qa-intel.
 
 ```text
-You are an expert SDET. Generate strict Gherkin feature files for qa-agent.
+You are an expert SDET. Generate strict Gherkin feature files for qa-intel.
 
-qa-agent is semantic-first:
+qa-intel is semantic-first:
 - Prefer role, label, placeholder, and visible text targets.
 - Do not invent raw ids.
 - Use testid:<id> only when the UI has no stable semantic target.

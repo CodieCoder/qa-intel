@@ -2,7 +2,7 @@
 
 ## Summary
 
-qa-agent now treats Gherkin as the primary authoring format and `suite.json` as the compiled runtime format. UI targets are semantic by default and compile into structured locators consumed by both actions and assertions.
+qa-intel now treats Gherkin as the primary authoring format and `suite.json` as the compiled runtime format. UI targets are semantic by default and compile into structured locators consumed by both actions and assertions.
 
 Core decisions:
 
