@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test App</title>
+  <style>
+    body { font-family: sans-serif; margin: 40px; }
+    .form-group { margin: 12px 0; }
+    input { padding: 8px; width: 300px; }
+    button { padding: 8px 24px; cursor: pointer; }
+    .error { color: red; display: none; }
+    .dashboard { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Login Page -->
+<div id="login-page">
+  <h1>Login</h1>
+  <div class="form-group">
+    <input type="email" data-testid="email-input" placeholder="Email" />
+  </div>
+  <div class="form-group">
+    <input type="password" data-testid="password-input" placeholder="Password" />
+  </div>
+  <button data-testid="login-btn" onclick="handleLogin()">Login</button>
+  <div data-testid="error-message" class="error"></div>
+</div>
+
+<!-- Dashboard Page -->
+<div data-testid="dashboard" class="dashboard">
+  <h1 data-testid="welcome-text">Welcome to Dashboard</h1>
+  <p>You are logged in.</p>
+</div>
+
+<script>
+function handleLogin() {
+  const email = document.querySelector('[data-testid="email-input"]').value;
+  const password = document.querySelector('[data-testid="password-input"]').value;
+
+  if (email === 'test@example.com' && password === 'password123') {
+    // Successful login
+    document.getElementById('login-page').style.display = 'none';
+    document.querySelector('[data-testid="dashboard"]').style.display = 'block';
+    history.pushState({}, '', '/dashboard');
+  } else {
+    // Failed login
+    const errorEl = document.querySelector('[data-testid="error-message"]');
+    errorEl.textContent = 'Invalid email or password';
+    errorEl.style.display = 'block';
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.qa-results/
+.DS_Store
+
+# Defence-in-depth: the compiler emits suite.json + contracts.json. Default
+# out-dir is now `.qa-results/compile/` (gitignored above), but users can
+# still pass `--out-dir .` — don't let those outputs be committed here.
+suite.json
+contracts.json
