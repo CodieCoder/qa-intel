@@ -1,6 +1,21 @@
 # QA Agent
 
-A Gherkin-first QA runner that turns acceptance-style `.feature` files into deterministic Playwright checks. Write flows in user-visible language, compile them to `suite.json`, run them, and get JSON results with screenshots, network logs, console logs, SQLite persistence, and fix hints.
+QA Agent (`@codie/qa-intel`) is a portable QA intelligence layer for agentic engineering. It turns human- or LLM-authored acceptance flows into structured contracts that another agent, CI job, or test harness can execute, validate, inspect, and reason about.
+
+The aim is not only to run Playwright. The project gives agents a shared validation surface:
+
+- strict Gherkin input that compiles to `suite.json`
+- semantic locators instead of brittle raw selectors
+- JSON-only command output for agent-to-agent handoff
+- browser execution with UI, API, network, trace, console, screenshot, and DOM diagnostics
+- failure summaries and fix hints that point toward frontend, backend, or test issues
+- optional SQLite persistence so an agent can query prior runs and dig deeper
+
+## Why It Exists
+
+Modern coding agents can generate code quickly, but they need a reliable way to check whether a user journey still behaves correctly. QA Agent provides that feedback loop in a format agents can consume without scraping terminal output.
+
+One agent can generate or update a `.feature` file. Another can compile and run it. A third can inspect JSON, screenshots, console logs, network calls, trace IDs, and SQLite history before deciding whether the issue is UI, API, business logic, or the test itself.
 
 ## How It Works
 
@@ -8,8 +23,9 @@ A Gherkin-first QA runner that turns acceptance-style `.feature` files into dete
 Gherkin feature
   -> strict compiler
   -> suite.json with structured locators
-  -> Playwright execution
-  -> JSON output + screenshots + optional SQLite history
+  -> Playwright browser/API execution
+  -> JSON result + screenshots + network/console logs
+  -> optional SQLite history for later investigation
 ```
 
 The core idea is semantic-first targeting:
@@ -26,6 +42,33 @@ When a UI has no stable semantic target, use an explicit escape hatch:
 When I click testid:login-submit
 When I click css:[data-state='ready']
 ```
+
+## Agent-Facing Guarantees
+
+The CLI is designed for machine consumption:
+
+- stdout is JSON, with no ANSI formatting
+- failures are structured by layer: `ui`, `api`, or `business`
+- runs include stable `runId` and `traceId` values
+- step results include status, duration, target references, screenshots, and typed failure details
+- assertion results include expected/actual data where available
+- non-fatal persistence warnings go to stderr instead of corrupting JSON stdout
+
+The package also exports tool-style functions for agent workflows:
+
+```ts
+import {
+  runSuiteTool,
+  executeContractTool,
+  executeStepTool,
+  validateUIAssertionTool,
+  validateAPIResponseTool,
+  getStepArtifactsTool,
+  ResultStore,
+} from "@codie/qa-intel";
+```
+
+These functions return `{ ok, data, error }` shapes so agents can pass validation results to each other without needing to infer state from prose.
 
 ## Usage
 
@@ -55,7 +98,7 @@ Useful flags:
 | `--headed` | Show the browser |
 | `--fail-fast` | Stop after the first failing contract |
 | `--artifact-dir <dir>` | Screenshot/artifact output directory |
-| `--results-db <path>` | SQLite results database path |
+| `--results-db <path>` | SQLite results database path, default `.qa-results/results.db` |
 | `--auto-heal` | Enable experimental LLM locator healing |
 
 ## Gherkin Syntax
@@ -85,6 +128,7 @@ API steps and assertions:
 When I POST "/api/auth/login" with body '{"email":"a@b.com","password":"secret"}'
 Then the API response to "/api/auth/login" should have status 200
 Then the API response to "/api/auth/login" field "user.email" should equal "a@b.com"
+Then requests to "/api/auth/login" should include trace ID
 ```
 
 ## Locator Model
@@ -106,13 +150,13 @@ The runtime resolves those through Playwright:
 | Strategy | Playwright call |
 |----------|-----------------|
 | `role` | `page.getByRole(role, { name })` |
-| `label` | `page.getByLabel(name)` |
+| `label` | `page.getByLabel(name, { exact: true })` |
 | `placeholder` | `page.getByPlaceholder(text)` |
 | `text` | `page.getByText(text)` |
 | `testid` | `page.getByTestId(id)` |
 | `css` | `page.locator(selector)` |
 
-## Output
+## Output And Diagnostics
 
 All CLI output is JSON. A passing run looks like:
 
@@ -120,21 +164,72 @@ All CLI output is JSON. A passing run looks like:
 {
   "ok": true,
   "data": {
+    "runId": "uuid",
+    "traceId": "uuid",
     "status": "passed",
     "summary": {
       "totalContracts": 1,
       "passed": 1,
       "failed": 0
-    }
+    },
+    "contracts": []
   }
 }
 ```
 
-Failures include step/assertion context, screenshot paths, and fix hints. Results can also be persisted to `.qa-results/results.db`.
+Failures include step/assertion context, screenshot paths, layer classification, and fix hints. During execution, QA Agent captures browser console messages, uncaught page errors, filtered network traffic, request/response bodies when available, and trace headers for API assertions.
+
+## SQLite Investigation
+
+CLI runs persist history to `.qa-results/results.db` by default. Pass `--results-db <path>` to choose another database:
+
+```bash
+qa-runner examples/login.feature \
+  --base-url http://localhost:3002 \
+  --results-db .qa-results/results.db
+```
+
+The SQLite store is intended for agents that need to ask follow-up questions after a run:
+
+- What was the latest failed run?
+- Which step failed first?
+- What network calls happened around a failing assertion?
+- What console or page errors appeared during a step?
+- Did a previous run fail in the same layer with the same target?
+
+Programmatic access is available through `ResultStore`:
+
+```ts
+import { ResultStore } from "@codie/qa-intel";
+
+const store = new ResultStore(".qa-results/results.db");
+const latest = store.getLatestRun();
+
+if (latest) {
+  const network = store.getRunNetworkLogs(latest.runId);
+  const consoleLogs = store.getRunConsoleLogs(latest.runId);
+}
+
+store.close();
+```
+
+The database uses normalized tables for runs, contracts, steps, assertions, network logs, network headers, and console logs, so agents can also query it directly with SQL.
 
 ## Auto-Healing
 
-Auto-healing is experimental and disabled by default. Enable it with `--auto-heal` and configure an `OPENAI_API_KEY`. The healer receives the failed structured locator, accessibility tree, screenshot, and error message, then returns a validated `LocatorSpec`. If healing fails or returns invalid output, the original deterministic failure is preserved.
+Auto-healing is experimental and disabled by default. Enable it with `--auto-heal` and configure an `OPENAI_API_KEY`.
+
+When a locator-based action fails after normal retries, the healer receives the failed structured locator, accessibility tree, screenshot, and error message. It must return a validated `LocatorSpec`; invalid suggestions are dropped and the original deterministic failure is preserved.
+
+## Docs
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/agent-workflows.md](docs/agent-workflows.md) | Agent-to-agent validation loops and SQLite investigation |
+| [docs/cli.md](docs/cli.md) | CLI commands, flags, JSON output, and exit codes |
+| [docs/gherkin.md](docs/gherkin.md) | Supported strict Gherkin syntax |
+| [docs/dsl.md](docs/dsl.md) | Compiled `suite.json` and `LocatorSpec` reference |
+| [docs/configuration.md](docs/configuration.md) | CLI, environment, programmatic, artifact, and SQLite configuration |
 
 ## Development
 
