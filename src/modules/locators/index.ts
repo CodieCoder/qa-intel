@@ -6,7 +6,7 @@ export function resolveLocator(page: Page, locator: LocatorSpec): Locator {
     case "role":
       return page.getByRole(locator.role, { name: locator.name });
     case "label":
-      return page.getByLabel(locator.name);
+      return page.getByLabel(locator.name, { exact: true });
     case "placeholder":
       return page.getByPlaceholder(locator.text);
     case "text":
