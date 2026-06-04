@@ -1,6 +1,6 @@
 # Gherkin Reference
 
-Gherkin is the recommended authoring format. The grammar is strict and compiles to structured `LocatorSpec` objects.
+Gherkin is the recommended authoring format. The grammar is strict and compiles to structured `LocatorSpec` objects for deterministic agent-to-agent validation.
 
 ## UI Flow
 
@@ -64,6 +64,7 @@ Then the API response to "/api/users" should have status 200
 Then the API response to "/api/users" should contain "a@b.com"
 Then the API response to "/api/users" field "user.email" should equal "a@b.com"
 Then the response header "content-type" from "/api/users" should contain "application/json"
+Then requests to "/api/users" should include trace ID
 ```
 
 ## Migration Note
