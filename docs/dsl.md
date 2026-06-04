@@ -1,6 +1,6 @@
 # DSL Reference
 
-`suite.json` is the compiled runtime format. Users should usually author `.feature` files and let the compiler produce this JSON.
+`suite.json` is the compiled runtime format. Users should usually author `.feature` files and let the compiler produce this JSON. The format is intentionally structured so agents and tools can validate, exchange, and re-run contracts without parsing natural-language test logs.
 
 ## Suite Shape
 
@@ -52,7 +52,7 @@ Resolution:
 | Strategy | Playwright call |
 |----------|-----------------|
 | `role` | `page.getByRole(role, { name })` |
-| `label` | `page.getByLabel(name)` |
+| `label` | `page.getByLabel(name, { exact: true })` |
 | `placeholder` | `page.getByPlaceholder(text)` |
 | `text` | `page.getByText(text)` |
 | `testid` | `page.getByTestId(id)` |
@@ -97,6 +97,7 @@ When I click the button "Log in"
 When I type "maac@example.com" into the field "Email"
 Then I should see the heading "Dashboard"
 Then the text "Welcome back" should exist
+Then requests to "/api/session" should include trace ID
 When I click testid:login-submit
 When I click css:[data-state='ready']
 ```

@@ -1,5 +1,7 @@
 # Gherkin-First Semantic QA Runner V1
 
+This is a historical implementation plan. For current usage, see `docs/gherkin.md`, `docs/dsl.md`, `docs/cli.md`, and `docs/agent-workflows.md`.
+
 ## Summary
 
 qa-intel now treats Gherkin as the primary authoring format and `suite.json` as the compiled runtime format. UI targets are semantic by default and compile into structured locators consumed by both actions and assertions.
@@ -27,7 +29,7 @@ type LocatorSpec =
 Resolution is centralized:
 
 - `role` -> `page.getByRole(role, { name })`
-- `label` -> `page.getByLabel(name)`
+- `label` -> `page.getByLabel(name, { exact: true })`
 - `placeholder` -> `page.getByPlaceholder(text)`
 - `text` -> `page.getByText(text)`
 - `testid` -> `page.getByTestId(id)`
