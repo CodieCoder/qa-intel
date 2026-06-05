@@ -1,0 +1,4 @@
+interface:
+  display_name: "QA Intel"
+  short_description: "Start QA Agent validation work quickly"
+  default_prompt: "Use $qa-intel to generate, run, or investigate QA Agent validation contracts."
