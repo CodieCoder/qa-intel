@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, basename, extname } from "node:path";
