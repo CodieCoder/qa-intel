@@ -1,6 +1,6 @@
 # Code Of Conduct
 
-QA Agent should be a practical, respectful place to improve agentic QA tooling.
+QA Intel should be a practical, respectful place to improve agentic QA tooling.
 
 ## Expected Behavior
 
@@ -21,4 +21,3 @@ QA Agent should be a practical, respectful place to improve agentic QA tooling.
 For conduct issues, contact a maintainer privately when possible. If no private channel is available, open a minimal public issue asking for maintainer contact without posting private details.
 
 Maintainers may edit, hide, or remove comments and may temporarily or permanently restrict participation when needed to keep the project usable.
-

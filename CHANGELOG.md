@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to QA Agent will be documented here.
+All notable changes to QA Intel will be documented here.
 
 This project follows semantic versioning once it leaves the initial `0.x` phase. While the package is `0.x`, minor versions may still include breaking changes, and breaking behavior should be called out clearly in this file.
 

@@ -1,13 +1,13 @@
 # Agent Workflows
 
-QA Agent is meant to be a validation surface for agentic engineering. It gives coding agents a shared contract format, deterministic execution, structured diagnostics, and queryable history.
+QA Intel is meant to be a validation surface for agentic engineering. It gives coding agents a shared contract format, deterministic execution, structured diagnostics, and queryable history.
 
 ## Typical Loop
 
 ```text
 Authoring agent
   -> writes or updates a .feature file
-  -> QA Agent compiler produces suite.json
+  -> QA Intel compiler produces suite.json
   -> validation agent runs the suite
   -> investigation agent reads JSON, artifacts, and SQLite history
   -> coding agent patches app/test code
@@ -33,7 +33,7 @@ The run result includes `runId`, `traceId`, per-contract statuses, step artifact
 
 ## Programmatic Tools
 
-Use exported functions when an agent wants to call QA Agent directly:
+Use exported functions when an agent wants to call QA Intel directly:
 
 ```ts
 import {

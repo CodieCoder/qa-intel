@@ -238,7 +238,7 @@ export interface IResultStore {
 }
 
 /**
- * SQLite-backed result store for QA Agent test runs.
+ * SQLite-backed result store for QA Intel test runs.
  *
  * All data is stored in normalized tables. The only JSON TEXT columns are
  * network_logs.request_body and network_logs.response_body — HTTP bodies are

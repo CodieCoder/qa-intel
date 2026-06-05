@@ -1,4 +1,4 @@
-// ─── QA Agents — Public API ─────────────────────────────────────────────────
+// ─── QA Intel — Public API ──────────────────────────────────────────────────
 
 // Types: Zod schemas for tool I/O, results (V2 output types)
 export * from "./modules/types/index.js";

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve QA Agent. The project is public, Apache-2.0 licensed, and aimed at making QA evidence easier for humans, CI, and coding agents to share.
+Thanks for helping improve QA Intel. The project is public, Apache-2.0 licensed, and aimed at making QA evidence easier for humans, CI, and coding agents to share.
 
 ## Good First Contributions
 

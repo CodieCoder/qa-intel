@@ -1,13 +1,13 @@
 ---
 name: qa-intel
-description: "Use when Codex needs to work on QA Agent (@qutecoder/qa-intel): generating strict Gherkin validation features, compiling or running qa-runner suites, interpreting JSON and SQLite diagnostics, investigating Playwright UI/API failures, updating QA Agent docs/tests, or onboarding quickly in the qa-agent repository."
+description: "Use when Codex needs to work on QA Intel (@qutecoder/qa-intel): generating strict Gherkin validation features, compiling or running qa-runner suites, interpreting JSON and SQLite diagnostics, investigating Playwright UI/API failures, updating QA Intel docs/tests, or onboarding quickly in the qa-agent repository."
 ---
 
 # QA Intel
 
 ## Start Here
 
-Use QA Agent as a deterministic validation layer for agentic engineering. Prefer structured inputs and outputs at every step:
+Use QA Intel as a deterministic validation layer for agentic engineering. Prefer structured inputs and outputs at every step:
 
 1. Author strict Gherkin `.feature` files.
 2. Compile them to `suite.json`.
@@ -26,7 +26,7 @@ If working in the `qa-agent` repository, read these files only as needed:
 
 ## Repo Workflow
 
-When editing QA Agent itself:
+When editing QA Intel itself:
 
 ```bash
 yarn build
