@@ -64,7 +64,7 @@ async function loadModule() {
   if (!existsSync(distPath)) {
     console.error(
       `ERROR: Cannot find built module at ${distPath}.\n` +
-        "Run `yarn workspace @codie/qa-intel build` (or `pnpm --filter @codie/qa-intel build`) first.",
+        "Run `yarn workspace @qutecoder/qa-intel build` (or `pnpm --filter @qutecoder/qa-intel build`) first.",
     );
     process.exit(2);
   }

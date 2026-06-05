@@ -4,15 +4,21 @@ The CLI executes strict Gherkin features or compiled `suite.json` files and prin
 
 ## Usage
 
+Install from npm:
+
+```bash
+npm install -D @qutecoder/qa-intel
+```
+
 ```bash
 # Compile Gherkin to suite.json
-qa-runner compile <feature-file> [flags]
+npx qa-runner compile <feature-file> [flags]
 
 # Run compiled suite JSON
-qa-runner run <suite.json> [flags]
+npx qa-runner run <suite.json> [flags]
 
 # Compile and run directly
-qa-runner <feature-file> [flags]
+npx qa-runner <feature-file> [flags]
 ```
 
 `contracts.json` is no longer generated or accepted.
@@ -33,9 +39,9 @@ qa-runner <feature-file> [flags]
 ## Examples
 
 ```bash
-qa-runner compile examples/login.feature --base-url http://localhost:3002
-qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
-qa-runner examples/login.feature --base-url http://localhost:3002 --headed
+npx qa-runner compile examples/login.feature --base-url http://localhost:3002
+npx qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
+npx qa-runner examples/login.feature --base-url http://localhost:3002 --headed
 ```
 
 ## Output

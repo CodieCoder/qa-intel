@@ -1,19 +1,35 @@
 {
-  "name": "@codie/qa-intel",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@qutecoder/qa-intel",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "CodieCoder"
+  },
   "description": "Portable QA intel — Gherkin to validated features via Playwright",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodieCoder/qa-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CodieCoder/qa-agent/issues"
+  },
+  "homepage": "https://github.com/CodieCoder/qa-agent#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "qa-runner": "./dist/cli.js"
+    "qa-runner": "dist/cli.js"
   },
   "files": [
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
     "dist",
     "docs",
     "examples",
-    "README.md"
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
   ],
   "exports": {
     ".": {
@@ -21,14 +37,25 @@
       "import": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
     "start": "node dist/cli.js",
     "lint": "echo \"skip\"",
     "typecheck": "tsc --noEmit",
+    "check:fast": "npm run build && node --test tests/package-smoke.test.mjs",
     "test": "tsc && node --test tests/*.test.mjs",
     "test:node": "tsc && node --test tests/*.test.mjs",
+    "bump:patch": "npm version patch --no-git-tag-version",
+    "bump:minor": "npm version minor --no-git-tag-version",
+    "bump:major": "npm version major --no-git-tag-version",
+    "bump:prerelease": "npm version prerelease --preid next --no-git-tag-version",
+    "prepublishOnly": "npm run release:check",
+    "release:check": "npm run build && npm test && npm pack --dry-run",
+    "release:publish": "npm publish --access public",
     "generate:element-kinds": "tsc && node scripts/generate-element-kinds-doc.mjs",
     "run:example": "tsc && node dist/cli.js examples/login.feature"
   },

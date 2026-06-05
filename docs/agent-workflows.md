@@ -20,13 +20,13 @@ The CLI and exported tool functions are intentionally JSON-first so agents can p
 Compile a Gherkin file to a structured suite:
 
 ```bash
-qa-runner compile examples/login.feature --base-url http://localhost:3002
+npx qa-runner compile examples/login.feature --base-url http://localhost:3002
 ```
 
 Run the compiled suite:
 
 ```bash
-qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
+npx qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
 ```
 
 The run result includes `runId`, `traceId`, per-contract statuses, step artifacts, assertion results, failures, and fix hints. CLI stdout is JSON. Non-fatal persistence warnings go to stderr.
@@ -43,7 +43,7 @@ import {
   validateUIAssertionTool,
   validateAPIResponseTool,
   getStepArtifactsTool,
-} from "@codie/qa-intel";
+} from "@qutecoder/qa-intel";
 ```
 
 Every tool-style function returns an `{ ok, data, error }` shape. That makes it safe for another agent to branch on `ok`, inspect `error.code`, or forward `data` as structured context.
@@ -66,7 +66,7 @@ CLI runs persist to `.qa-results/results.db` by default. Programmatic runs persi
 Use `ResultStore` for typed reads:
 
 ```ts
-import { ResultStore } from "@codie/qa-intel";
+import { ResultStore } from "@qutecoder/qa-intel";
 
 const store = new ResultStore(".qa-results/results.db");
 const latest = store.getLatestRun();

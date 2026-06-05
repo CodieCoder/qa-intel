@@ -1,6 +1,6 @@
 # QA Agent
 
-QA Agent (`@codie/qa-intel`) is a portable QA intelligence layer for agentic engineering. It turns human- or LLM-authored acceptance flows into structured contracts that another agent, CI job, or test harness can execute, validate, inspect, and reason about.
+QA Agent (`@qutecoder/qa-intel`) is a portable QA intelligence layer for agentic engineering. It turns human- or LLM-authored acceptance flows into structured contracts that another agent, CI job, or test harness can execute, validate, inspect, and reason about.
 
 The aim is not only to run Playwright. The project gives agents a shared validation surface:
 
@@ -65,29 +65,35 @@ import {
   validateAPIResponseTool,
   getStepArtifactsTool,
   ResultStore,
-} from "@codie/qa-intel";
+} from "@qutecoder/qa-intel";
 ```
 
 These functions return `{ ok, data, error }` shapes so agents can pass validation results to each other without needing to infer state from prose.
 
 ## Usage
 
+Install from npm:
+
+```bash
+npm install -D @qutecoder/qa-intel
+```
+
 Compile a feature file:
 
 ```bash
-qa-runner compile examples/login.feature --base-url http://localhost:3002
+npx qa-runner compile examples/login.feature --base-url http://localhost:3002
 ```
 
 Run a compiled suite:
 
 ```bash
-qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
+npx qa-runner run .qa-results/compile/suite.json --base-url http://localhost:3002
 ```
 
 Compile and run in one command:
 
 ```bash
-qa-runner examples/login.feature --base-url http://localhost:3002
+npx qa-runner examples/login.feature --base-url http://localhost:3002
 ```
 
 Useful flags:
@@ -184,7 +190,7 @@ Failures include step/assertion context, screenshot paths, layer classification,
 CLI runs persist history to `.qa-results/results.db` by default. Pass `--results-db <path>` to choose another database:
 
 ```bash
-qa-runner examples/login.feature \
+npx qa-runner examples/login.feature \
   --base-url http://localhost:3002 \
   --results-db .qa-results/results.db
 ```
@@ -200,7 +206,7 @@ The SQLite store is intended for agents that need to ask follow-up questions aft
 Programmatic access is available through `ResultStore`:
 
 ```ts
-import { ResultStore } from "@codie/qa-intel";
+import { ResultStore } from "@qutecoder/qa-intel";
 
 const store = new ResultStore(".qa-results/results.db");
 const latest = store.getLatestRun();
@@ -226,10 +232,19 @@ When a locator-based action fails after normal retries, the healer receives the 
 | Doc | Purpose |
 |-----|---------|
 | [docs/agent-workflows.md](docs/agent-workflows.md) | Agent-to-agent validation loops and SQLite investigation |
+| [docs/using-in-real-projects.md](docs/using-in-real-projects.md) | How teams use the package in apps, CI, and agent workflows |
 | [docs/cli.md](docs/cli.md) | CLI commands, flags, JSON output, and exit codes |
 | [docs/gherkin.md](docs/gherkin.md) | Supported strict Gherkin syntax |
 | [docs/dsl.md](docs/dsl.md) | Compiled `suite.json` and `LocatorSpec` reference |
 | [docs/configuration.md](docs/configuration.md) | CLI, environment, programmatic, artifact, and SQLite configuration |
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, docs expectations, and release notes. Please also read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md) before reporting sensitive issues.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). This keeps the project permissive for commercial and internal use while preserving attribution and Apache-2.0's patent grant/termination terms.
 
 ## Development
 

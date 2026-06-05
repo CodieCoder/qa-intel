@@ -34,7 +34,7 @@ Runtime step values and request URLs can contain `{{ENV_VAR}}` placeholders. The
 Programmatic callers can pass a parsed `TestSuite`, a JSON string, or raw Gherkin text as `suite`.
 
 ```typescript
-import { runSuiteTool } from "@codie/qa-intel";
+import { runSuiteTool } from "@qutecoder/qa-intel";
 
 const result = await runSuiteTool({
   suite: suiteJSON,

@@ -6,7 +6,7 @@ import { REPO_ROOT, createTempDir } from "./runtime-test-helpers.mjs";
 
 describe("package smoke", () => {
   it("self-imports the public package export map", async () => {
-    const api = await import("@codie/qa-intel");
+    const api = await import("@qutecoder/qa-intel");
 
     for (const exportName of [
       "compileGherkin",
@@ -43,11 +43,16 @@ describe("package smoke", () => {
 
       for (const expected of [
         "package.json",
+        "CHANGELOG.md",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
         "README.md",
+        "SECURITY.md",
         "dist/index.js",
         "dist/index.d.ts",
         "dist/cli.js",
         "docs/cli.md",
+        "docs/using-in-real-projects.md",
         "examples/login.feature",
         "examples/test-app.html",
       ]) {
@@ -56,7 +61,7 @@ describe("package smoke", () => {
 
       assert.equal(paths.has("src/index.ts"), false);
       assert.equal([...paths].some((path) => path.startsWith("tests/")), false);
-      assert.equal(pack.name, "@codie/qa-intel");
+      assert.equal(pack.name, "@qutecoder/qa-intel");
       assert.equal(pack.entryCount, paths.size);
     } finally {
       tmp.cleanup();
