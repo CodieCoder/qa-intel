@@ -1,4 +1,4 @@
 interface:
   display_name: "QA Intel"
-  short_description: "Start QA Agent validation work quickly"
-  default_prompt: "Use $qa-intel to generate, run, or investigate QA Agent validation contracts."
+  short_description: "Start QA Intel validation work quickly"
+  default_prompt: "Use $qa-intel to generate, run, or investigate QA Intel validation contracts."

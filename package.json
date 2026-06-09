@@ -5,7 +5,21 @@
   "author": {
     "name": "CodieCoder"
   },
-  "description": "Portable QA intel — Gherkin to validated features via Playwright",
+  "description": "Portable QA Intel — Gherkin to validated features via Playwright",
+  "keywords": [
+    "qa",
+    "testing",
+    "test-automation",
+    "playwright",
+    "gherkin",
+    "bdd",
+    "e2e",
+    "acceptance-tests",
+    "agentic",
+    "llm",
+    "validation",
+    "cli"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CodieCoder/qa-agent.git"

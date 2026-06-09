@@ -1,6 +1,6 @@
 # Security Policy
 
-QA Agent is a development and CI tool. It can drive browsers, call HTTP endpoints, capture screenshots, store diagnostics, and optionally persist run history to SQLite. Treat its output as test evidence that may contain sensitive application data.
+QA Intel is a development and CI tool. It can drive browsers, call HTTP endpoints, capture screenshots, store diagnostics, and optionally persist run history to SQLite. Treat its output as test evidence that may contain sensitive application data.
 
 ## Supported Versions
 
@@ -30,4 +30,3 @@ Helpful report details:
 Avoid committing `.qa-results/`, screenshots, SQLite databases, API responses, or browser traces from private systems. These artifacts can include tokens, cookies, personal data, headers, and internal URLs.
 
 Prefer test accounts, seeded fixtures, and redacted logs when sharing examples.
-
