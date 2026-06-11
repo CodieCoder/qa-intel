@@ -1,8 +1,8 @@
 // ─── Element-Kind Vocabulary ────────────────────────────────────────────────
 //
 // Single source of truth for the recommended `{kind}` slot vocabulary used in
-// the declarative Gherkin grammar (see `.agents/skills/qa-testing/references/
-// gherkin-step-syntax.md §Element-Kind Vocabulary`).
+// the declarative Gherkin grammar (see
+// `docs/gherkin.md` §Element-Kind Vocabulary).
 //
 // The markdown reference is regenerated from this module by
 // `scripts/generate-element-kinds-doc.mjs`. Do not hand-edit

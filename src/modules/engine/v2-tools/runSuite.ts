@@ -14,7 +14,7 @@ import { executeContractTool } from "./executeContract.js";
 
 /**
  * Executes a full test suite: compiles if needed, runs all contracts, aggregates results.
- * This is the single entry point for the CLI and skill scripts.
+ * This is the single entry point for the CLI and agent scripts.
  *
  * Returns a spec-compliant RunResult with:
  * - Per-contract results with screenshot file paths

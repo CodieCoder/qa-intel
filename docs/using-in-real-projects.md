@@ -1,6 +1,6 @@
-# Using QA Agent In Real Projects
+# Using QA Intel In Real Projects
 
-QA Agent is normally installed as a development dependency. Teams use it in local development, pull-request checks, staging validation, and agent workflows. It is not usually bundled into the production application.
+QA Intel is normally installed as a development dependency. Teams use it in local development, pull-request checks, staging validation, and agent workflows. It is not usually bundled into the production application.
 
 ```bash
 npm install -D @qutecoder/qa-intel
@@ -69,7 +69,7 @@ Store `.qa-results/` as a CI artifact when debugging failures. Do not commit it.
 
 ## Agent Workflow
 
-QA Agent is designed so coding agents can validate work without scraping terminal prose:
+QA Intel is designed so coding agents can validate work without scraping terminal prose:
 
 1. An agent creates or updates a `.feature` file for the intended behavior.
 2. `qa-runner` compiles and runs it.
@@ -80,11 +80,15 @@ QA Agent is designed so coding agents can validate work without scraping termina
 Programmatic access:
 
 ```ts
+import { readFileSync } from "node:fs";
 import { ResultStore, runSuiteTool } from "@qutecoder/qa-intel";
 
+const feature = readFileSync("tests/features/login.feature", "utf8");
+
 const result = await runSuiteTool({
-  suitePath: "tests/features/login.feature",
+  suite: feature,
   baseUrl: "http://localhost:3000",
+  resultsDb: ".qa-results/results.db",
 });
 
 const store = new ResultStore(".qa-results/results.db");
@@ -94,9 +98,9 @@ store.close();
 
 ## When It Ships With A Product
 
-Most apps should keep QA Agent in `devDependencies`.
+Most apps should keep QA Intel in `devDependencies`.
 
-Ship it as a production dependency only if the product itself runs QA automation for users, such as a hosted testing platform, an internal validation dashboard, or an agent product that exposes QA Agent workflows at runtime.
+Ship it as a production dependency only if the product itself runs QA automation for users, such as a hosted testing platform, an internal validation dashboard, or an agent product that exposes QA Intel workflows at runtime.
 
 ## Practical Tips
 
@@ -106,4 +110,3 @@ Ship it as a production dependency only if the product itself runs QA automation
 - Use seeded test users and fixtures.
 - Avoid real credentials and private production data.
 - Persist SQLite results in CI when agents need to compare failures over time.
-

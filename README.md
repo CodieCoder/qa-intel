@@ -1,6 +1,6 @@
-# QA Agent
+# QA Intel
 
-QA Agent (`@qutecoder/qa-intel`) is a portable QA intelligence layer for agentic engineering. It turns human- or LLM-authored acceptance flows into structured contracts that another agent, CI job, or test harness can execute, validate, inspect, and reason about.
+QA Intel (`@qutecoder/qa-intel`) is a portable QA intelligence layer for agentic engineering. It turns human- or LLM-authored acceptance flows into structured contracts that another agent, CI job, or test harness can execute, validate, inspect, and reason about.
 
 The aim is not only to run Playwright. The project gives agents a shared validation surface:
 
@@ -13,7 +13,7 @@ The aim is not only to run Playwright. The project gives agents a shared validat
 
 ## Why It Exists
 
-Modern coding agents can generate code quickly, but they need a reliable way to check whether a user journey still behaves correctly. QA Agent provides that feedback loop in a format agents can consume without scraping terminal output.
+Modern coding agents can generate code quickly, but they need a reliable way to check whether a user journey still behaves correctly. QA Intel provides that feedback loop in a format agents can consume without scraping terminal output.
 
 One agent can generate or update a `.feature` file. Another can compile and run it. A third can inspect JSON, screenshots, console logs, network calls, trace IDs, and SQLite history before deciding whether the issue is UI, API, business logic, or the test itself.
 
@@ -183,7 +183,7 @@ All CLI output is JSON. A passing run looks like:
 }
 ```
 
-Failures include step/assertion context, screenshot paths, layer classification, and fix hints. During execution, QA Agent captures browser console messages, uncaught page errors, filtered network traffic, request/response bodies when available, and trace headers for API assertions.
+Failures include step/assertion context, screenshot paths, layer classification, and fix hints. During execution, QA Intel captures browser console messages, uncaught page errors, filtered network traffic, request/response bodies when available, and trace headers for API assertions.
 
 ## SQLite Investigation
 
@@ -254,3 +254,7 @@ yarn build
 yarn typecheck
 yarn test
 ```
+
+## Keywords
+
+`qa-intel`, `qa`, `quality-assurance`, `testing`, `test-automation`, `test-runner`, `automation`, `playwright`, `browser-automation`, `ui-testing`, `api-testing`, `gherkin`, `gherkin-tests`, `cucumber`, `bdd`, `bdd-testing`, `e2e`, `end-to-end`, `acceptance-tests`, `acceptance-testing`, `ai`, `ai-agents`, `agentic`, `agentic-testing`, `llm`, `llm-testing`, `validation`, `test-diagnostics`, `structured-output`, `sqlite`, `ci`, `cli`

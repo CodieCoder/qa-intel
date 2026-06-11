@@ -1,19 +1,53 @@
 {
   "name": "@qutecoder/qa-intel",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "Apache-2.0",
   "author": {
     "name": "CodieCoder"
   },
-  "description": "Portable QA intel — Gherkin to validated features via Playwright",
+  "description": "Agentic QA test runner for Gherkin, Playwright, JSON diagnostics, and SQLite history",
+  "keywords": [
+    "qa-intel",
+    "qa",
+    "quality-assurance",
+    "testing",
+    "test-automation",
+    "test-runner",
+    "automation",
+    "playwright",
+    "browser-automation",
+    "ui-testing",
+    "api-testing",
+    "gherkin",
+    "gherkin-tests",
+    "cucumber",
+    "bdd",
+    "bdd-testing",
+    "e2e",
+    "end-to-end",
+    "acceptance-tests",
+    "acceptance-testing",
+    "ai",
+    "ai-agents",
+    "agentic",
+    "agentic-testing",
+    "llm",
+    "llm-testing",
+    "validation",
+    "test-diagnostics",
+    "structured-output",
+    "sqlite",
+    "ci",
+    "cli"
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CodieCoder/qa-agent.git"
+    "url": "git+https://github.com/CodieCoder/qa-intel.git"
   },
   "bugs": {
-    "url": "https://github.com/CodieCoder/qa-agent/issues"
+    "url": "https://github.com/CodieCoder/qa-intel/issues"
   },
-  "homepage": "https://github.com/CodieCoder/qa-agent#readme",
+  "homepage": "https://github.com/CodieCoder/qa-intel#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -56,7 +90,7 @@
     "prepublishOnly": "npm run release:check",
     "release:check": "npm run build && npm test && npm pack --dry-run",
     "release:publish": "npm publish --access public",
-    "generate:element-kinds": "tsc && node scripts/generate-element-kinds-doc.mjs",
+    "generate:element-kinds": "tsc && node scripts/generate-element-kinds-doc.mjs docs/gherkin.md",
     "run:example": "tsc && node dist/cli.js examples/login.feature"
   },
   "dependencies": {
