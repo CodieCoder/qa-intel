@@ -2,9 +2,8 @@
 /**
  * generate-element-kinds-doc.mjs
  *
- * Regenerates the Element-Kind Vocabulary section of a
- * `gherkin-step-syntax.md` file from the canonical TypeScript module
- * `packages/qa-intel/src/modules/dsl/element-kinds.ts`.
+ * Regenerates the Element-Kind Vocabulary section of `docs/gherkin.md` from
+ * the canonical TypeScript module at `src/modules/dsl/element-kinds.ts`.
  *
  * The module is the single source of truth. The markdown section between
  *   <!-- BEGIN: element-kinds ... -->
@@ -12,7 +11,7 @@
  * is overwritten with seven category tables rendered from `ELEMENT_KINDS`.
  *
  * Usage:
- *   node packages/qa-intel/scripts/generate-element-kinds-doc.mjs <path-to-md> [--check]
+ *   node scripts/generate-element-kinds-doc.mjs <path-to-md> [--check]
  *
  * Flags:
  *   --check    Do not write. Exit 0 if the file already matches, 1 if it
@@ -32,7 +31,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const BEGIN_MARKER =
-  "<!-- BEGIN: element-kinds (auto-generated from packages/qa-intel/src/modules/dsl/element-kinds.ts) -->";
+  "<!-- BEGIN: element-kinds (auto-generated from src/modules/dsl/element-kinds.ts) -->";
 const END_MARKER = "<!-- END: element-kinds -->";
 
 const CATEGORY_LABELS = {
@@ -47,7 +46,7 @@ const CATEGORY_LABELS = {
 
 function usage() {
   console.error(
-    "Usage: node packages/qa-intel/scripts/generate-element-kinds-doc.mjs <path-to-md> [--check]",
+    "Usage: node scripts/generate-element-kinds-doc.mjs <path-to-md> [--check]",
   );
 }
 
@@ -64,7 +63,7 @@ async function loadModule() {
   if (!existsSync(distPath)) {
     console.error(
       `ERROR: Cannot find built module at ${distPath}.\n` +
-        "Run `yarn workspace @qutecoder/qa-intel build` (or `pnpm --filter @qutecoder/qa-intel build`) first.",
+        "Run `npm run build` first.",
     );
     process.exit(2);
   }
