@@ -28,6 +28,91 @@ Scenario: Successful login
 | `testid:login-submit` | `{ "strategy": "testid", "id": "login-submit" }` |
 | `css:[data-state='ready']` | `{ "strategy": "css", "selector": "[data-state='ready']" }` |
 
+## Element-Kind Vocabulary
+
+<!-- BEGIN: element-kinds (auto-generated from src/modules/dsl/element-kinds.ts) -->
+
+### Layout
+
+| Kind        | Description                    |
+| ----------- | ------------------------------ |
+| `page`      | Top-level page root container  |
+| `section`   | A major section within a page  |
+| `panel`     | A contained panel or card body |
+| `card`      | A card component               |
+| `sidebar`   | Sidebar navigation landmark    |
+| `header`    | Page or section header         |
+| `footer`    | Page or section footer         |
+| `container` | Generic container/wrapper      |
+
+### Navigation
+
+| Kind         | Description               |
+| ------------ | ------------------------- |
+| `link`       | Anchor / navigation link  |
+| `tab`        | Tab panel trigger         |
+| `breadcrumb` | Breadcrumb navigation bar |
+| `menu`       | Dropdown or context menu  |
+| `menu-item`  | Item within a menu        |
+
+### Forms
+
+| Kind          | Description                                    |
+| ------------- | ---------------------------------------------- |
+| `field`       | A form control addressed by visible label      |
+| `form`        | `<form>` element or form container             |
+| `input`       | Text, number, date, textarea, or similar input |
+| `select`      | Dropdown / combobox select                     |
+| `checkbox`    | Checkbox input                                 |
+| `radio`       | Radio button input                             |
+| `toggle`      | Toggle / switch control                        |
+| `file-input`  | File upload input                              |
+| `placeholder` | Input addressed by placeholder text            |
+
+### Actions
+
+| Kind          | Description                                                      |
+| ------------- | ---------------------------------------------------------------- |
+| `button`      | `<button>` element                                               |
+| `submit`      | Form submit button (when emphasis on submit semantics is needed) |
+| `icon-button` | Icon-only button                                                 |
+
+### Data
+
+| Kind      | Description                             |
+| --------- | --------------------------------------- |
+| `table`   | Data table                              |
+| `row`     | Table row or list item row              |
+| `cell`    | Table cell                              |
+| `list`    | List container                          |
+| `heading` | `<h1>`–`<h6>` or prominent heading text |
+| `text`    | Visible text content                    |
+| `label`   | Descriptive label                       |
+| `badge`   | Status badge or tag                     |
+| `value`   | Rendered data value (read-only)         |
+
+### Feedback
+
+| Kind       | Description                   |
+| ---------- | ----------------------------- |
+| `toast`    | Toast / snackbar notification |
+| `dialog`   | Modal dialog                  |
+| `alert`    | Inline alert / banner         |
+| `error`    | Validation error message      |
+| `spinner`  | Loading spinner               |
+| `skeleton` | Skeleton loading placeholder  |
+| `empty`    | Empty-state indicator         |
+
+### Media
+
+| Kind     | Description   |
+| -------- | ------------- |
+| `image`  | Image element |
+| `icon`   | Icon element  |
+| `avatar` | User avatar   |
+
+<!-- END: element-kinds -->
+
 ## Steps
 
 ```gherkin

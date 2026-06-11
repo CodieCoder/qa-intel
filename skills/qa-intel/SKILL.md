@@ -1,6 +1,6 @@
 ---
 name: qa-intel
-description: "Use when Codex needs to work on QA Intel (@qutecoder/qa-intel): generating strict Gherkin validation features, compiling or running qa-runner suites, interpreting JSON and SQLite diagnostics, investigating Playwright UI/API failures, updating QA Intel docs/tests, or onboarding quickly in the qa-agent repository."
+description: "Use when an agent needs to work on QA Intel (@qutecoder/qa-intel): generating strict Gherkin validation features, compiling or running qa-runner suites, interpreting JSON and SQLite diagnostics, investigating Playwright UI/API failures, updating QA Intel docs/tests, or onboarding quickly in the QA Intel repository."
 ---
 
 # QA Intel
@@ -15,7 +15,7 @@ Use QA Intel as a deterministic validation layer for agentic engineering. Prefer
 4. Read JSON stdout, artifacts, and optional SQLite history.
 5. Patch the app, API, fixtures, or test contract based on the failure layer.
 
-If working in the `qa-agent` repository, read these files only as needed:
+If working in the QA Intel repository, read these files only as needed:
 
 - `README.md` for the product overview and exported API surface.
 - `docs/gherkin.md` for supported strict Gherkin syntax.
@@ -47,7 +47,7 @@ yarn build
 node dist/cli.js examples/login.feature --base-url http://localhost:3002
 ```
 
-Keep skill files outside `src`; they should not be compiled by TypeScript. In this repository, keep the Codex skill under `skills/qa-intel/` and do not add it to `package.json.files` unless the user explicitly wants the npm package to ship agent onboarding assets.
+Keep agent guidance files outside `src`; they should not be compiled by TypeScript. In this repository, keep reusable agent instructions under `skills/qa-intel/` and do not add them to `package.json.files` unless the user explicitly wants the npm package to ship agent onboarding assets.
 
 ## Author Features
 

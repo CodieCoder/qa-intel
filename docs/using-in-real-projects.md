@@ -80,11 +80,15 @@ QA Intel is designed so coding agents can validate work without scraping termina
 Programmatic access:
 
 ```ts
+import { readFileSync } from "node:fs";
 import { ResultStore, runSuiteTool } from "@qutecoder/qa-intel";
 
+const feature = readFileSync("tests/features/login.feature", "utf8");
+
 const result = await runSuiteTool({
-  suitePath: "tests/features/login.feature",
+  suite: feature,
   baseUrl: "http://localhost:3000",
+  resultsDb: ".qa-results/results.db",
 });
 
 const store = new ResultStore(".qa-results/results.db");

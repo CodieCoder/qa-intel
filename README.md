@@ -257,4 +257,4 @@ yarn test
 
 ## Keywords
 
-`qa`, `testing`, `test-automation`, `playwright`, `gherkin`, `bdd`, `e2e`, `acceptance-tests`, `agentic`, `llm`, `validation`, `cli`
+`qa-intel`, `qa`, `quality-assurance`, `testing`, `test-automation`, `test-runner`, `automation`, `playwright`, `browser-automation`, `ui-testing`, `api-testing`, `gherkin`, `gherkin-tests`, `cucumber`, `bdd`, `bdd-testing`, `e2e`, `end-to-end`, `acceptance-tests`, `acceptance-testing`, `ai`, `ai-agents`, `agentic`, `agentic-testing`, `llm`, `llm-testing`, `validation`, `test-diagnostics`, `structured-output`, `sqlite`, `ci`, `cli`
