@@ -282,6 +282,8 @@ describe("ActionEngine browser runtime", () => {
         ["success", "failed", "skipped"],
       );
       assert.match(results[1].error, /Missing button|Timeout|locator/i);
+      assert.equal(results[1].errorDetails.locatorDiagnostics.matchedCount, 0);
+      assert.ok(Array.isArray(results[1].errorDetails.locatorDiagnostics.nearestMatches));
       assertBase64Png(results[1].screenshotBefore);
       assertBase64Png(results[1].screenshot);
       assert.equal(results[2].duration, 0);

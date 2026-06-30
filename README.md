@@ -102,10 +102,14 @@ Useful flags:
 |------|-------------|
 | `--base-url <url>` | Base URL for relative navigation and API requests |
 | `--headed` | Show the browser |
+| `--browser-executable-path <path>` | Launch a specific Chromium-compatible browser executable |
+| `--browser-channel <channel>` | Launch a Playwright Chromium channel such as `chrome` or `msedge` |
 | `--fail-fast` | Stop after the first failing contract |
 | `--artifact-dir <dir>` | Screenshot/artifact output directory |
 | `--results-db <path>` | SQLite results database path, default `.qa-results/results.db` |
 | `--auto-heal` | Enable experimental LLM locator healing |
+
+Browser selection precedence is: explicit executable path, explicit channel, `QA_INTEL_BROWSER_EXECUTABLE_PATH`, `QA_INTEL_BROWSER_CHANNEL`, then bundled Playwright Chromium.
 
 ## Gherkin Syntax
 
@@ -185,6 +189,28 @@ All CLI output is JSON. A passing run looks like:
 
 Failures include step/assertion context, screenshot paths, layer classification, and fix hints. During execution, QA Intel captures browser console messages, uncaught page errors, filtered network traffic, request/response bodies when available, and trace headers for API assertions.
 
+Failed semantic locators include additive diagnostics:
+
+```json
+{
+  "selector": "heading \"Dashboard\"",
+  "found": false,
+  "matchedCount": 0,
+  "visibleCount": 0,
+  "nearestMatches": [
+    {
+      "kind": "text",
+      "text": "Dashboard",
+      "score": 1,
+      "reason": "Visible text matches \"Dashboard\", but it is exposed as text, not heading."
+    }
+  ],
+  "guidance": [
+    "Target text exists but not as heading. Fix the accessible HTML so it exposes heading semantics, or change the contract target kind to text."
+  ]
+}
+```
+
 ## SQLite Investigation
 
 CLI runs persist history to `.qa-results/results.db` by default. Pass `--results-db <path>` to choose another database:
@@ -253,6 +279,7 @@ yarn install
 yarn build
 yarn typecheck
 yarn test
+yarn run:example
 ```
 
 ## Keywords

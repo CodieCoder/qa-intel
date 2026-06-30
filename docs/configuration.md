@@ -14,11 +14,22 @@ Important defaults:
 | Artifact directory | `.qa-results/artifacts` |
 | SQLite results DB | `.qa-results/results.db` |
 | Browser mode | headless unless `--headed` is passed |
+| Browser executable | unset; bundled Playwright Chromium is used by default |
+| Browser channel | unset |
 | Auto-healing | disabled unless `--auto-heal` is passed |
 
 ## Environment
 
 `PORT` controls the CLI's default base URL when `--base-url` is not provided and the compiled suite does not already include `baseUrl`.
+
+Browser selection uses:
+
+| Variable | Purpose |
+|----------|---------|
+| `QA_INTEL_BROWSER_EXECUTABLE_PATH` | Browser executable path fallback when no explicit path/channel is configured |
+| `QA_INTEL_BROWSER_CHANNEL` | Playwright Chromium channel fallback when no explicit path/channel or env path is configured |
+
+Selection precedence is explicit path, explicit channel, env path, env channel, then bundled Playwright Chromium.
 
 Auto-healing uses:
 
@@ -46,6 +57,8 @@ const result = await runSuiteTool({
     failFast: false,
     timeoutMs: 10000,
     autoHeal: false,
+    browserExecutablePath: "/path/to/chrome",
+    browserChannel: undefined,
   },
 });
 ```
@@ -60,6 +73,8 @@ Unlike the CLI, `runSuiteTool` only persists to SQLite when `resultsDb` is suppl
 | `failFast` | `boolean` | `false` | Stop after the first non-passing contract |
 | `timeoutMs` | `number` | engine default | Action timeout passed into `ActionEngine` |
 | `autoHeal` | `boolean` | `false` | Enable experimental LLM locator healing |
+| `browserExecutablePath` | `string` | `undefined` | Explicit browser executable path. Takes precedence over channel/env/default |
+| `browserChannel` | `string` | `undefined` | Explicit Playwright Chromium channel such as `chrome` or `msedge` |
 
 ## ActionEngine Config
 
@@ -77,6 +92,8 @@ Direct `ActionEngine` users can configure the lower-level engine:
 | `slowMo` | `number` | `0` | Slow down actions for debugging |
 | `viewport` | `{width, height}` | `1280x720` | Browser viewport dimensions |
 | `autoHeal` | `boolean` | `false` | Enable experimental LLM locator healing |
+| `browserExecutablePath` | `string` | `undefined` | Browser executable path passed to `chromium.launch` when selected |
+| `browserChannel` | `string` | `undefined` | Browser channel passed to `chromium.launch` when selected |
 
 ## Assertion Timeout
 

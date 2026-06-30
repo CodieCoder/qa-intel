@@ -47,8 +47,12 @@ export async function validateUIAssertionTool(
         actual: result.actual,
         diagnostics: input.assertion.locator
           ? {
+              ...result.diagnostics,
               selector: describeLocator(input.assertion.locator),
-              found: result.status === "passed",
+              found:
+                typeof result.diagnostics?.matchedCount === "number"
+                  ? result.diagnostics.matchedCount > 0
+                  : result.status === "passed",
             }
           : undefined,
       },

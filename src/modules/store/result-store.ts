@@ -14,10 +14,12 @@ import type { NetworkEntry, ConsoleLogEntry } from "../logger/index.js";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Current schema version. Bump this when the schema changes. */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** Default maximum number of runs to retain. Oldest are pruned on each saveRun. */
 const DEFAULT_MAX_RUNS = 50;
+
+const ARRAY_MARKER_KEY = "__qa_intel_array";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 //
@@ -74,6 +76,13 @@ const SCHEMA_SQL = `
     step_index          INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS contract_failure_details (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+    key         TEXT NOT NULL,
+    value       TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS step_error_details (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     step_id   INTEGER NOT NULL REFERENCES steps(id) ON DELETE CASCADE,
@@ -125,6 +134,13 @@ const SCHEMA_SQL = `
     failure_index INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS failure_details (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    failure_id INTEGER NOT NULL REFERENCES failures(id) ON DELETE CASCADE,
+    key        TEXT NOT NULL,
+    value      TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS fix_hints (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     failure_id    INTEGER NOT NULL REFERENCES failures(id) ON DELETE CASCADE,
@@ -167,6 +183,7 @@ const SCHEMA_SQL = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_contracts_run_id ON contracts(run_id);
+  CREATE INDEX IF NOT EXISTS idx_contract_failure_details_contract_id ON contract_failure_details(contract_id);
   CREATE INDEX IF NOT EXISTS idx_steps_contract_id ON steps(contract_id);
   CREATE INDEX IF NOT EXISTS idx_step_error_details_step_id ON step_error_details(step_id);
   CREATE INDEX IF NOT EXISTS idx_assertions_contract_id ON assertions(contract_id);
@@ -174,6 +191,7 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_assertion_actual_assertion_id ON assertion_actual(assertion_id);
   CREATE INDEX IF NOT EXISTS idx_assertion_diagnostics_assertion_id ON assertion_diagnostics(assertion_id);
   CREATE INDEX IF NOT EXISTS idx_failures_run_id ON failures(run_id);
+  CREATE INDEX IF NOT EXISTS idx_failure_details_failure_id ON failure_details(failure_id);
   CREATE INDEX IF NOT EXISTS idx_fix_hints_failure_id ON fix_hints(failure_id);
   CREATE INDEX IF NOT EXISTS idx_network_logs_contract_id ON network_logs(contract_id);
   CREATE INDEX IF NOT EXISTS idx_network_log_headers_log_id ON network_log_headers(log_id);
@@ -318,9 +336,9 @@ export class ResultStore implements IResultStore {
   private _dropAllTables(): void {
     const tables = [
       "console_logs", "network_log_headers", "network_logs",
-      "fix_hints", "failures",
+      "fix_hints", "failure_details", "failures",
       "assertion_diagnostics", "assertion_actual", "assertion_expected", "assertions",
-      "step_error_details", "steps", "contracts", "runs",
+      "step_error_details", "steps", "contract_failure_details", "contracts", "runs",
       "schema_version",
     ];
     for (const table of tables) {
@@ -343,6 +361,9 @@ export class ResultStore implements IResultStore {
       INSERT INTO contracts (run_id, intent, status, duration_ms, passed_count, failed_count,
         root_failure_layer, root_failure_cause, root_failure_step_id, contract_index)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertContractFailureDetail = this.db.prepare(`
+      INSERT INTO contract_failure_details (contract_id, key, value) VALUES (?, ?, ?)
     `);
     const insertStep = this.db.prepare(`
       INSERT INTO steps (contract_id, step_id, type, status, duration_ms,
@@ -370,6 +391,9 @@ export class ResultStore implements IResultStore {
     const insertFailure = this.db.prepare(`
       INSERT INTO failures (contract_id, run_id, intent, layer, issue, location, failure_index)
       VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertFailureDetail = this.db.prepare(`
+      INSERT INTO failure_details (failure_id, key, value) VALUES (?, ?, ?)
     `);
     const insertFixHint = this.db.prepare(`
       INSERT INTO fix_hints (failure_id, type, suggestion, target_file, target_function, target_endpoint, hint_index)
@@ -405,6 +429,12 @@ export class ResultStore implements IResultStore {
           contract.failure?.causedByStep ?? null, ci
         );
         const contractId = contractRow.lastInsertRowid;
+
+        if (contract.failure?.details) {
+          flattenToKv(contract.failure.details, (key, value) => {
+            insertContractFailureDetail.run(contractId, key, value);
+          });
+        }
 
         // ── Steps ─────────────────────────────────────────────────────
         for (let si = 0; si < contract.steps.length; si++) {
@@ -461,11 +491,9 @@ export class ResultStore implements IResultStore {
 
           // Diagnostics → key-value rows
           if (assertion.diagnostics && typeof assertion.diagnostics === "object") {
-            for (const [key, value] of Object.entries(assertion.diagnostics)) {
-              if (value !== undefined && value !== null) {
-                insertAssertionDiagnostic.run(assertionDbId, key, String(value));
-              }
-            }
+            flattenToKv(assertion.diagnostics, (key, value) => {
+              insertAssertionDiagnostic.run(assertionDbId, key, value);
+            });
           }
         }
 
@@ -478,6 +506,12 @@ export class ResultStore implements IResultStore {
               failure.issue, failure.location ?? null, fi
             );
             const failureDbId = failureRow.lastInsertRowid;
+
+            if (failure.details) {
+              flattenToKv(failure.details, (key, value) => {
+                insertFailureDetail.run(failureDbId, key, value);
+              });
+            }
 
             if (failure.fixHints) {
               for (let hi = 0; hi < failure.fixHints.length; hi++) {
@@ -535,6 +569,12 @@ export class ResultStore implements IResultStore {
             failure.issue, failure.location ?? null, fi
           );
           const failureDbId = failureRow.lastInsertRowid;
+
+          if (failure.details) {
+            flattenToKv(failure.details, (key, value) => {
+              insertFailureDetail.run(failureDbId, key, value);
+            });
+          }
 
           if (failure.fixHints) {
             for (let hi = 0; hi < failure.fixHints.length; hi++) {
@@ -616,6 +656,13 @@ export class ResultStore implements IResultStore {
     `).all(runId) as any[];
 
     const contracts: ContractResult[] = contractRows.map((c: any) => {
+      const contractFailureDetails = readKvTable(
+        this.db,
+        "contract_failure_details",
+        "contract_id",
+        c.id,
+      );
+
       // Steps
       const stepRows = this.db.prepare(`
         SELECT id, step_id, type, status, duration_ms, error_type, error_message,
@@ -631,10 +678,11 @@ export class ResultStore implements IResultStore {
             SELECT key, value FROM step_error_details WHERE step_id = ?
           `).all(s.id) as Array<{ key: string; value: string | null }>;
           if (detailRows.length > 0) {
-            errorDetails = {};
+            const flatDetails: Record<string, any> = {};
             for (const d of detailRows) {
-              errorDetails[d.key] = parseScalar(d.value);
+              flatDetails[d.key] = parseScalar(d.value);
             }
+            errorDetails = unflattenKv(flatDetails);
           }
         }
 
@@ -677,7 +725,7 @@ export class ResultStore implements IResultStore {
           status: a.status,
           expected: expected ? unflattenKv(expected) : undefined,
           actual: actual ? unflattenKv(actual) : undefined,
-          diagnostics: diagnostics ?? undefined,
+          diagnostics: diagnostics ? unflattenKv(diagnostics) : undefined,
         };
       });
 
@@ -688,6 +736,7 @@ export class ResultStore implements IResultStore {
       `).all(c.id) as any[];
 
       const failures: FailureSummary[] = failureRows.map((f: any) => {
+        const details = readKvTable(this.db, "failure_details", "failure_id", f.id);
         const hintRows = this.db.prepare(`
           SELECT type, suggestion, target_file, target_function, target_endpoint
           FROM fix_hints WHERE failure_id = ? ORDER BY hint_index
@@ -710,6 +759,7 @@ export class ResultStore implements IResultStore {
           layer: f.layer,
           issue: f.issue,
           location: f.location ?? undefined,
+          details: details ? unflattenKv(details) : undefined,
           fixHints: fixHints.length > 0 ? fixHints : undefined,
         };
       });
@@ -722,7 +772,12 @@ export class ResultStore implements IResultStore {
         assertions,
         summary: { passed: c.passed_count, failed: c.failed_count },
         failure: c.root_failure_layer
-          ? { layer: c.root_failure_layer, rootCause: c.root_failure_cause, causedByStep: c.root_failure_step_id ?? undefined }
+          ? {
+              layer: c.root_failure_layer,
+              rootCause: c.root_failure_cause,
+              causedByStep: c.root_failure_step_id ?? undefined,
+              details: contractFailureDetails ? unflattenKv(contractFailureDetails) : undefined,
+            }
           : undefined,
         failures: failures.length > 0 ? failures : undefined,
       } as ContractResult;
@@ -739,6 +794,7 @@ export class ResultStore implements IResultStore {
       if (contract.failures) allFailures.push(...contract.failures);
     }
     for (const f of runFailureRows) {
+      const details = readKvTable(this.db, "failure_details", "failure_id", f.id);
       const hintRows = this.db.prepare(`
         SELECT type, suggestion, target_file, target_function, target_endpoint
         FROM fix_hints WHERE failure_id = ? ORDER BY hint_index
@@ -761,6 +817,7 @@ export class ResultStore implements IResultStore {
         layer: f.layer,
         issue: f.issue,
         location: f.location ?? undefined,
+        details: details ? unflattenKv(details) : undefined,
         fixHints: fixHints.length > 0 ? fixHints : undefined,
       });
     }
@@ -969,10 +1026,24 @@ function flattenToKv(
 ): void {
   if (value === null || value === undefined) return;
 
+  if (Array.isArray(value)) {
+    emit(prefix ? `${prefix}.${ARRAY_MARKER_KEY}` : ARRAY_MARKER_KEY, "true");
+    for (let i = 0; i < value.length; i++) {
+      const fullKey = prefix ? `${prefix}.${i}` : String(i);
+      const item = value[i];
+      if (item !== null && item !== undefined && typeof item === "object") {
+        flattenToKv(item, emit, fullKey);
+      } else {
+        emit(fullKey, item != null ? String(item) : null);
+      }
+    }
+    return;
+  }
+
   if (typeof value === "object" && !Array.isArray(value)) {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       const fullKey = prefix ? `${prefix}.${k}` : k;
-      if (v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v)) {
+      if (v !== null && v !== undefined && typeof v === "object") {
         flattenToKv(v, emit, fullKey);
       } else {
         emit(fullKey, v != null ? String(v) : null);
@@ -1027,7 +1098,30 @@ function unflattenKv(kv: Record<string, any>): any {
     }
     current[parts[parts.length - 1]] = value;
   }
-  return result;
+  return convertMarkedArrays(result);
+}
+
+function convertMarkedArrays(value: any): any {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const entries = Object.entries(value);
+
+  if (value[ARRAY_MARKER_KEY] === true) {
+    const arrayEntries = entries
+      .filter(([key]) => key !== ARRAY_MARKER_KEY)
+      .filter(([key]) => /^\d+$/.test(key))
+      .sort(([a], [b]) => Number(a) - Number(b));
+
+    return arrayEntries.map(([, entryValue]) => convertMarkedArrays(entryValue));
+  }
+
+  for (const [key, entryValue] of entries) {
+    value[key] = convertMarkedArrays(entryValue);
+  }
+
+  return value;
 }
 
 /**

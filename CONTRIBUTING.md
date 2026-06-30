@@ -19,6 +19,7 @@ Useful contribution areas:
 npm install
 npm run build
 npm test
+npm run run:example
 ```
 
 The runtime tests start local HTTP servers and browsers. If they fail with a localhost permission error in a restricted environment, rerun them in a normal shell.
@@ -78,3 +79,5 @@ After the bump, update `CHANGELOG.md`, run the release checks, and publish with 
 npm run release:check
 npm run release:publish
 ```
+
+`release:publish` checks `npm whoami` before publishing. If it returns `E401`, run `npm login` with the account that owns or has publish access to the `@qutecoder` scope. If authentication succeeds but publish still returns `E404`, the logged-in npm account does not have access to publish `@qutecoder/qa-intel`.

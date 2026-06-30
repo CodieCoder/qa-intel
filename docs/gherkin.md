@@ -28,6 +28,22 @@ Scenario: Successful login
 | `testid:login-submit` | `{ "strategy": "testid", "id": "login-submit" }` |
 | `css:[data-state='ready']` | `{ "strategy": "css", "selector": "[data-state='ready']" }` |
 
+## Choosing Targets
+
+Use the target kind that matches the user-facing semantics you want to validate:
+
+| Use | When |
+|-----|------|
+| `heading "Dashboard"` | The copy should be exposed as a real heading or heading role |
+| `text "Welcome back"` or `"Welcome back"` | The copy only needs to be visible text |
+| `field "Email"` | A form control has a visible label or accessible label |
+| `label "Email"` | You are validating label copy itself rather than typing into a control |
+| `button "Save"` | The control should be exposed as a button with an accessible name |
+| `testid:submit` | Semantic targeting is unavailable but the app provides a stable test id |
+| `css:[data-state='ready']` | Last resort for state or structure that has no semantic/test id target |
+
+When diagnostics say target text exists but not as `heading`, `button`, or another role, either fix the accessible HTML to match the contract or change the contract target kind to the semantics the UI actually exposes.
+
 ## Element-Kind Vocabulary
 
 <!-- BEGIN: element-kinds (auto-generated from src/modules/dsl/element-kinds.ts) -->

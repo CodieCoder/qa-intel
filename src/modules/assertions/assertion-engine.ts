@@ -1,7 +1,7 @@
 import type { Page } from "playwright";
 import type { Assertion, AssertionResult, LocatorSpec } from "../dsl/index.js";
 import type { NetworkEntry } from "../logger/index.js";
-import { describeLocator, resolveLocator } from "../locators/index.js";
+import { describeLocator, inspectLocator, resolveLocator } from "../locators/index.js";
 
 // ─── Assertion Engine ────────────────────────────────────────────────────────
 
@@ -114,6 +114,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" is not visible`,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -134,6 +135,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" is still visible`,
+        diagnostics: await safeInspectLocator(page, locatorSpec, "hidden"),
       };
     }
   }
@@ -154,6 +156,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" does not exist in DOM`,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -182,6 +185,7 @@ export class AssertionEngine {
         reason: `Text mismatch for "${target}"`,
         expected,
         actual: trimmed,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     } catch (err) {
       return {
@@ -189,6 +193,7 @@ export class AssertionEngine {
         status: "failed",
         reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -217,6 +222,7 @@ export class AssertionEngine {
         reason: `Text does not contain expected value for "${target}"`,
         expected,
         actual: trimmed,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     } catch (err) {
       return {
@@ -224,6 +230,7 @@ export class AssertionEngine {
         status: "failed",
         reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -563,5 +570,20 @@ export class AssertionEngine {
       case "trace_id_present":
         return `trace_id_present: ${assertion.url}`;
     }
+  }
+}
+
+async function safeInspectLocator(
+  page: Page,
+  locatorSpec: LocatorSpec,
+  expectedState: "visible" | "hidden" = "visible",
+): Promise<Record<string, any>> {
+  try {
+    return await inspectLocator(page, locatorSpec, { expectedState });
+  } catch (err) {
+    return {
+      selector: describeLocator(locatorSpec),
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }

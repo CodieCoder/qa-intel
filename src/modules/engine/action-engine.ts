@@ -6,7 +6,7 @@ import {
 } from "playwright";
 import type { Step } from "../dsl/index.js";
 import { AutoHealer, type HealingContext } from "../auto-healing/index.js";
-import { describeLocator, resolveLocator } from "../locators/index.js";
+import { describeLocator, inspectLocator, resolveLocator } from "../locators/index.js";
 import {
   TestLogger,
   type StepEvent,
@@ -18,6 +18,7 @@ import {
   DEFAULT_ENGINE_CONFIG,
 } from "./types.js";
 import { resolveRuntimeEnvPlaceholders } from "./runtime-env-placeholders.js";
+import { createBrowserLaunchError, resolveBrowserSelection } from "./browser-selection.js";
 
 function expandStepValue(value: string): string {
   return /\{\{[A-Z]/.test(value) ? resolveRuntimeEnvPlaceholders(value) : value;
@@ -55,15 +56,27 @@ export class ActionEngine {
   // ─── Lifecycle ───────────────────────────────────────────────────────────
 
   async launch(): Promise<void> {
+    const browserSelection = resolveBrowserSelection(this.config);
     this.logger.info("Launching browser", {
       headless: this.config.headless,
       viewport: this.config.viewport,
+      browserSelection: {
+        kind: browserSelection.kind,
+        source: browserSelection.source,
+        executablePath: browserSelection.executablePath,
+        channel: browserSelection.channel,
+      },
     });
 
-    this.browser = await chromium.launch({
-      headless: this.config.headless,
-      slowMo: this.config.slowMo,
-    });
+    try {
+      this.browser = await chromium.launch({
+        headless: this.config.headless,
+        slowMo: this.config.slowMo,
+        ...browserSelection.launchOptions,
+      });
+    } catch (err) {
+      throw createBrowserLaunchError(err, browserSelection);
+    }
 
     this.context = await this.browser.newContext({
       viewport: this.config.viewport,
@@ -366,6 +379,7 @@ export class ActionEngine {
 
     // All retries exhausted — capture failure diagnostics (includes after screenshot)
     const failureDiagnostics = await this.captureFailureDiagnostics();
+    const locatorDiagnostics = await this.inspectFailedLocator(step);
 
     const event: StepEvent = {
       timestamp: startTime,
@@ -374,10 +388,11 @@ export class ActionEngine {
       value: "value" in step ? step.value : undefined,
       result: "failed",
       duration: Date.now() - startTime,
-      selector: result?.selector,
+      selector: result?.selector ?? this.stepTarget(step),
       screenshotBefore,
       screenshot: failureDiagnostics.screenshot,
       error: lastError?.message ?? "Unknown error",
+      errorDetails: locatorDiagnostics ? { locatorDiagnostics } : undefined,
       network: [],
     };
 
@@ -651,6 +666,19 @@ export class ActionEngine {
     }
 
     return result;
+  }
+
+  private async inspectFailedLocator(step: Step): Promise<unknown | undefined> {
+    if (!this.page || !("locator" in step) || !step.locator) return undefined;
+
+    try {
+      return await inspectLocator(this.page, step.locator);
+    } catch (err) {
+      return {
+        selector: describeLocator(step.locator),
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   private delay(ms: number): Promise<void> {

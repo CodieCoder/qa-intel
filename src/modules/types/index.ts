@@ -127,6 +127,18 @@ export type BusinessAssertionInput = z.infer<typeof BusinessAssertionInputSchema
 
 // ─── Assertion Results ───────────────────────────────────────────────────────
 
+export const LocatorDiagnosticsSchema = z
+  .object({
+    selector: z.string().optional(),
+    strategy: z.string().optional(),
+    matchedCount: z.number().optional(),
+    visibleCount: z.number().optional(),
+    nearestMatches: z.array(z.record(z.any())).optional(),
+    guidance: z.array(z.string()).optional(),
+    found: z.boolean().optional(),
+  })
+  .catchall(z.any());
+
 export const UIAssertionResultSchema = z.object({
   assertionId: z.string(),
   domain: z.literal("ui"),
@@ -135,12 +147,7 @@ export const UIAssertionResultSchema = z.object({
   status: z.enum(["passed", "failed"]),
   expected: z.any().optional(),
   actual: z.any().optional(),
-  diagnostics: z
-    .object({
-      selector: z.string().optional(),
-      found: z.boolean().optional(),
-    })
-    .optional(),
+  diagnostics: LocatorDiagnosticsSchema.optional(),
 });
 export type UIAssertionResult = z.infer<typeof UIAssertionResultSchema>;
 
@@ -195,6 +202,7 @@ export const FailureSummarySchema = z.object({
   layer: z.enum(["ui", "api", "business"]),
   issue: z.string(),
   location: z.string().optional(),
+  details: z.record(z.any()).optional(),
   fixHints: z.array(FixHintSchema).optional(),
 });
 export type FailureSummary = z.infer<typeof FailureSummarySchema>;
@@ -216,6 +224,7 @@ export const ContractResultSchema = z.object({
       layer: z.enum(["ui", "api", "business"]),
       rootCause: z.string(),
       causedByStep: z.string().optional(),
+      details: z.record(z.any()).optional(),
     })
     .optional(),
   failures: z.array(FailureSummarySchema).optional(),
@@ -245,6 +254,8 @@ export const SuiteConfigSchema = z.object({
   failFast: z.boolean().optional(),
   timeoutMs: z.number().optional(),
   autoHeal: z.boolean().optional(),
+  browserExecutablePath: z.string().optional(),
+  browserChannel: z.string().optional(),
 });
 export type SuiteConfig = z.infer<typeof SuiteConfigSchema>;
 

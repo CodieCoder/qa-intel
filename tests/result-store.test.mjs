@@ -25,6 +25,7 @@ describe("ResultStore: normalized table roundtrip", () => {
   });
 
   it("saves and reads a full RunResult with all normalized tables", () => {
+    const dbPath = join(dbDir, "test.db");
     const runResult = {
       runId: "run-001",
       traceId: "trace-001",
@@ -69,7 +70,17 @@ describe("ResultStore: normalized table roundtrip", () => {
               error: {
                 type: "ELEMENT_NOT_FOUND",
                 message: "element not found within 5000ms",
-                details: { attemptedSelector: 'button "Log in"', retries: 3 },
+                details: {
+                  attemptedSelector: 'button "Log in"',
+                  retries: 3,
+                  locatorDiagnostics: {
+                    matchedCount: 0,
+                    visibleCount: 0,
+                    nearestMatches: [
+                      { kind: "button", text: "Log in", score: 0.92 },
+                    ],
+                  },
+                },
               },
               artifacts: {
                 beforeScreenshot: "/abs/path/step-2-before.png",
@@ -90,6 +101,14 @@ describe("ResultStore: normalized table roundtrip", () => {
               diagnostics: {
                 selector: 'heading "Dashboard"',
                 found: false,
+                locatorDiagnostics: {
+                  matchedCount: 0,
+                  visibleCount: 0,
+                  nearestMatches: [
+                    { kind: "text", text: "Dashboard", score: 1 },
+                  ],
+                  guidance: ["Target text exists but not as heading."],
+                },
               },
             },
             {
@@ -98,8 +117,8 @@ describe("ResultStore: normalized table roundtrip", () => {
               type: "status_code",
               endpointRef: "/api/auth/login",
               status: "passed",
-              expected: { status: 200 },
-              actual: { status: 200, body: "token-abc" },
+              expected: { status: 200, buckets: { 2024: 12, 2025: 8 } },
+              actual: { status: 200, body: "token-abc", buckets: { 2024: 12, 2025: 8 } },
             },
           ],
           summary: { passed: 1, failed: 2 },
@@ -107,6 +126,16 @@ describe("ResultStore: normalized table roundtrip", () => {
             layer: "ui",
             rootCause: "element not found within 5000ms",
             causedByStep: "trace-001-c0-step-2",
+            details: {
+              browserSelection: {
+                kind: "executablePath",
+                source: "config",
+                executablePath: "/missing/chrome",
+                executablePathExists: false,
+              },
+              setupHints: ["Verify that the selected browser executable path exists."],
+              cause: "Browser executable was not found",
+            },
           },
           failures: [
             {
@@ -114,6 +143,14 @@ describe("ResultStore: normalized table roundtrip", () => {
               layer: "ui",
               issue: "element not found within 5000ms",
               location: 'step: click (button "Log in")',
+              details: {
+                locatorDiagnostics: {
+                  matchedCount: 0,
+                  nearestMatches: [
+                    { kind: "button", text: "Log in", score: 0.92 },
+                  ],
+                },
+              },
               fixHints: [
                 {
                   type: "frontend",
@@ -135,6 +172,14 @@ describe("ResultStore: normalized table roundtrip", () => {
           layer: "ui",
           issue: "element not found within 5000ms",
           location: 'step: click (button "Log in")',
+          details: {
+            browserSelection: {
+              kind: "executablePath",
+              source: "config",
+              executablePath: "/missing/chrome",
+              executablePathExists: false,
+            },
+          },
           fixHints: [
             {
               type: "frontend",
@@ -152,6 +197,56 @@ describe("ResultStore: normalized table roundtrip", () => {
 
     store.saveRun(runResult);
 
+    const Database = require("better-sqlite3");
+    const rawDb = new Database(dbPath, { readonly: true });
+    try {
+      const assertionKeys = rawDb.prepare(`
+        SELECT key, value FROM assertion_diagnostics ORDER BY key
+      `).all();
+      assert.ok(
+        assertionKeys.some((row) =>
+          row.key === "locatorDiagnostics.nearestMatches.0.text" &&
+          row.value === "Dashboard"
+        ),
+        "nested assertion diagnostics should be flattened into key paths",
+      );
+
+      const stepKeys = rawDb.prepare(`
+        SELECT key, value FROM step_error_details ORDER BY key
+      `).all();
+      assert.ok(
+        stepKeys.some((row) =>
+          row.key === "locatorDiagnostics.nearestMatches.0.text" &&
+          row.value === "Log in"
+        ),
+        "nested step diagnostics should be flattened into key paths",
+      );
+
+      const contractFailureKeys = rawDb.prepare(`
+        SELECT key, value FROM contract_failure_details ORDER BY key
+      `).all();
+      assert.ok(
+        contractFailureKeys.some((row) =>
+          row.key === "browserSelection.executablePath" &&
+          row.value === "/missing/chrome"
+        ),
+        "contract root failure details should be flattened into key paths",
+      );
+
+      const failureKeys = rawDb.prepare(`
+        SELECT key, value FROM failure_details ORDER BY key
+      `).all();
+      assert.ok(
+        failureKeys.some((row) =>
+          row.key === "locatorDiagnostics.nearestMatches.0.text" &&
+          row.value === "Log in"
+        ),
+        "failure summary details should be flattened into key paths",
+      );
+    } finally {
+      rawDb.close();
+    }
+
     const loaded = store.getRun("run-001");
     assert.ok(loaded);
     assert.equal(loaded.runId, "run-001");
@@ -160,6 +255,9 @@ describe("ResultStore: normalized table roundtrip", () => {
 
     const c = loaded.contracts[0];
     assert.equal(c.steps.length, 3);
+    assert.equal(c.failure.details.browserSelection.executablePath, "/missing/chrome");
+    assert.equal(c.failure.details.browserSelection.executablePathExists, false);
+    assert.equal(c.failure.details.setupHints[0], "Verify that the selected browser executable path exists.");
 
     // Step 1 — step context round-trips
     const s1 = c.steps[1];
@@ -175,6 +273,7 @@ describe("ResultStore: normalized table roundtrip", () => {
     assert.ok(s2.error.details);
     assert.equal(s2.error.details.attemptedSelector, 'button "Log in"');
     assert.equal(s2.error.details.retries, 3); // number round-trips via parseScalar
+    assert.equal(s2.error.details.locatorDiagnostics.nearestMatches[0].text, "Log in");
     assert.equal(s2.artifacts.domSnapshot, "<html><body>...</body></html>");
 
     // Assertion 0 — expected/actual from key-value tables
@@ -185,18 +284,22 @@ describe("ResultStore: normalized table roundtrip", () => {
     assert.ok(a0.diagnostics);
     assert.equal(a0.diagnostics.selector, 'heading "Dashboard"');
     assert.equal(a0.diagnostics.found, false);
+    assert.equal(a0.diagnostics.locatorDiagnostics.nearestMatches[0].text, "Dashboard");
+    assert.equal(a0.diagnostics.locatorDiagnostics.guidance[0], "Target text exists but not as heading.");
 
     // Assertion 1 — object expected/actual round-trips via dot-notation flatten
     const a1 = c.assertions[1];
     assert.equal(a1.status, "passed");
-    assert.deepEqual(a1.expected, { status: 200 });
-    assert.deepEqual(a1.actual, { status: 200, body: "token-abc" });
+    assert.deepEqual(a1.expected, { status: 200, buckets: { 2024: 12, 2025: 8 } });
+    assert.deepEqual(a1.actual, { status: 200, body: "token-abc", buckets: { 2024: 12, 2025: 8 } });
 
     // Fix hints — normalized rows
     const f = c.failures[0];
+    assert.equal(f.details.locatorDiagnostics.nearestMatches[0].text, "Log in");
     assert.equal(f.fixHints.length, 2);
     assert.equal(f.fixHints[0].type, "frontend");
     assert.equal(f.fixHints[0].target?.file, "src/components/LoginForm.tsx");
+    assert.equal(loaded.failures.at(-1).details.browserSelection.executablePath, "/missing/chrome");
 
     // getFailedSteps
     const failedSteps = store.getFailedSteps("run-001");
@@ -367,7 +470,7 @@ describe("ResultStore: schema versioning", () => {
 
     // Create store, save a run
     const store1 = new ResultStore(dbPath);
-    assert.equal(store1.getSchemaVersion(), 2);
+    assert.equal(store1.getSchemaVersion(), 3);
 
     store1.saveRun({
       runId: "run-old",
@@ -396,7 +499,7 @@ describe("ResultStore: schema versioning", () => {
 
     // Re-open — should detect version mismatch and recreate
     const store2 = new ResultStore(dbPath);
-    assert.equal(store2.getSchemaVersion(), 2);
+    assert.equal(store2.getSchemaVersion(), 3);
 
     // Old data should be gone (tables were dropped and recreated)
     const oldRun = store2.getRun("run-old");

@@ -6,4 +6,5 @@ export {
   DEFAULT_ENGINE_CONFIG,
 } from "./types.js";
 
+export * from "./browser-selection.js";
 export * from "./v2-tools/index.js";
