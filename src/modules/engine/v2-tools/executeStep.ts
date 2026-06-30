@@ -79,6 +79,7 @@ export async function executeStepTool(
           error: {
             type: classifyFailureType(result.error ?? ""),
             message: result.error ?? "Step failed to execute",
+            details: result.errorDetails,
           },
           artifacts: {
             beforeScreenshot: beforePath,

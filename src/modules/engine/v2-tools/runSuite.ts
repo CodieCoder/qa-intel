@@ -127,6 +127,7 @@ export async function runSuiteTool(
           failure: {
             layer: "ui",
             rootCause: result.error?.message ?? "Unknown execution error",
+            details: result.error?.details,
           },
         });
 
@@ -134,6 +135,7 @@ export async function runSuiteTool(
           intent: contract.intent,
           layer: "ui",
           issue: result.error?.message ?? "Unknown execution error",
+          details: result.error?.details,
         });
       }
 

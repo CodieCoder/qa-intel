@@ -10,8 +10,10 @@ const ASSERTION_HTML = `<!doctype html>
 <html>
   <body>
     <h1>Ready</h1>
+    <p id="plain-copy">Plain Copy</p>
     <p id="copy">Balance is 42 credits</p>
     <p id="hidden" hidden>Secret copy</p>
+    <button>Save</button>
     <div data-testid="mounted"></div>
   </body>
 </html>`;
@@ -112,6 +114,52 @@ describe("AssertionEngine browser assertions", () => {
       assert.equal(wrongUrl.status, "failed");
       assert.equal(wrongUrl.expected, "/other");
       assert.match(wrongUrl.actual, /\/assertions\?mode=ok$/);
+    });
+  });
+
+  it("reports semantic mismatch and nearest visible candidates", async () => {
+    await withAssertionPage(async (page) => {
+      const engine = new AssertionEngine(300);
+
+      const headingMismatch = await engine.evaluate(page, {
+        type: "visible",
+        locator: { strategy: "role", role: "heading", name: "Plain Copy" },
+      });
+
+      assert.equal(headingMismatch.status, "failed");
+      assert.equal(headingMismatch.diagnostics.matchedCount, 0);
+      assert.equal(headingMismatch.diagnostics.visibleCount, 0);
+      assert.equal(headingMismatch.diagnostics.nearestMatches[0].kind, "text");
+      assert.equal(headingMismatch.diagnostics.nearestMatches[0].text, "Plain Copy");
+      assert.match(headingMismatch.diagnostics.guidance[0], /not as heading/);
+
+      const buttonTypo = await engine.evaluate(page, {
+        type: "visible",
+        locator: { strategy: "role", role: "button", name: "Savve" },
+      });
+
+      assert.equal(buttonTypo.status, "failed");
+      assert.equal(buttonTypo.diagnostics.nearestMatches[0].kind, "button");
+      assert.equal(buttonTypo.diagnostics.nearestMatches[0].text, "Save");
+      assert.match(buttonTypo.diagnostics.nearestMatches[0].reason, /button candidate/);
+    });
+  });
+
+  it("reports visible matches for failed not_visible assertions", async () => {
+    await withAssertionPage(async (page) => {
+      const engine = new AssertionEngine(300);
+
+      const result = await engine.evaluate(page, {
+        type: "not_visible",
+        locator: { strategy: "role", role: "button", name: "Save" },
+      });
+
+      assert.equal(result.status, "failed");
+      assert.match(result.reason, /still visible/);
+      assert.equal(result.diagnostics.matchedCount, 1);
+      assert.equal(result.diagnostics.visibleCount, 1);
+      assert.match(result.diagnostics.guidance[0], /expected it to be hidden/);
+      assert.doesNotMatch(result.diagnostics.guidance[0], /No visible button matched/);
     });
   });
 });

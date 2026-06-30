@@ -35,6 +35,7 @@ export interface StepEvent {
   screenshot?: string;
   network: NetworkEntry[];
   error?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 export interface AssertionEvent {

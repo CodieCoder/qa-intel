@@ -25,6 +25,21 @@ export async function generateFixHintsTool(
     const step = String(failure.step ?? "").toLowerCase();
     const assertion = String(failure.assertion ?? "").toLowerCase();
     const selector = String(failure.selector ?? "");
+    const locatorDiagnostics = failure.locatorDiagnostics;
+    const guidance = Array.isArray(locatorDiagnostics?.guidance)
+      ? locatorDiagnostics.guidance.filter((entry: unknown) => typeof entry === "string")
+      : [];
+
+    if (guidance.some((entry: string) => entry.includes("not as"))) {
+      hints.push({
+        type: "frontend",
+        suggestion: guidance[0],
+      });
+      hints.push({
+        type: "test",
+        suggestion: `If the UI intentionally exposes this copy as plain text or another element kind, change the contract target away from "${selector || "the current semantic locator"}".`,
+      });
+    }
 
     // ─── UI / Element Visibility Patterns ───────────────────────────────
 

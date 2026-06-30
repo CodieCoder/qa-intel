@@ -12,6 +12,7 @@ import { TestLogger, type NetworkEntry } from "../../logger/index.js";
 import { LocalArtifactStorage } from "../../store/index.js";
 import { ActionEngine, type ConsoleLogEntry } from "../action-engine.js";
 import type { EngineConfig } from "../types.js";
+import { BrowserLaunchError } from "../browser-selection.js";
 import { AssertionEngine } from "../../assertions/index.js";
 import { generateFixHintsTool } from "./generateFixHints.js";
 import { describeLocator } from "../../locators/index.js";
@@ -65,6 +66,8 @@ export async function executeContractTool(
   const engineConfig: Partial<EngineConfig> = {
     baseUrl: input.baseUrl,
     autoHeal: input.config?.autoHeal ?? false,
+    browserExecutablePath: input.config?.browserExecutablePath,
+    browserChannel: input.config?.browserChannel,
   };
   if (input.config?.headless !== undefined) engineConfig.headless = input.config.headless;
   if (input.config?.timeoutMs !== undefined) engineConfig.timeout = input.config.timeoutMs;
@@ -114,6 +117,7 @@ export async function executeContractTool(
         error = {
           type: classifyFailureType(s.error),
           message: s.error,
+          details: s.errorDetails,
         };
       }
 
@@ -146,7 +150,7 @@ export async function executeContractTool(
       status: "passed" | "failed";
       expected?: any;
       actual?: any;
-      diagnostics?: { selector?: string; found?: boolean };
+      diagnostics?: Record<string, any>;
     };
 
     const assertions: AssertionResultEntry[] = [];
@@ -193,7 +197,7 @@ export async function executeContractTool(
             expected: r.expected,
             actual: r.actual,
             diagnostics: "locator" in assertion
-              ? { selector: describeLocator(assertion.locator) }
+              ? assertionDiagnostics(describeLocator(assertion.locator), r)
               : undefined,
           });
         }
@@ -232,6 +236,7 @@ export async function executeContractTool(
           reason: step.error?.message,
           step: step.type,
           selector: step.selector,
+          locatorDiagnostics: step.error?.details?.locatorDiagnostics,
         },
       });
 
@@ -256,6 +261,7 @@ export async function executeContractTool(
           reason: `${a.type} assertion failed`,
           assertion: a.type,
           selector: a.diagnostics?.selector,
+          locatorDiagnostics: a.diagnostics,
         },
       });
 
@@ -313,16 +319,34 @@ export async function executeContractTool(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const details = err instanceof BrowserLaunchError ? err.details : undefined;
     return {
       ok: false,
       error: {
         code: "EXECUTION_FAILED",
         message: `Contract execution failed: ${message}`,
+        details,
       },
     };
   } finally {
     await engine.close();
   }
+}
+
+function assertionDiagnostics(
+  selector: string,
+  result: { status: "passed" | "failed"; diagnostics?: Record<string, any> },
+): Record<string, any> {
+  const matchedCount =
+    typeof result.diagnostics?.matchedCount === "number"
+      ? result.diagnostics.matchedCount
+      : undefined;
+
+  return {
+    ...result.diagnostics,
+    selector,
+    found: matchedCount !== undefined ? matchedCount > 0 : result.status === "passed",
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

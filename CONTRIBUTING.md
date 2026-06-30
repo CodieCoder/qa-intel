@@ -19,6 +19,7 @@ Useful contribution areas:
 npm install
 npm run build
 npm test
+npm run run:example
 ```
 
 The runtime tests start local HTTP servers and browsers. If they fail with a localhost permission error in a restricted environment, rerun them in a normal shell.
