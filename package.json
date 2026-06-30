@@ -90,7 +90,8 @@
     "bump:prerelease": "npm version prerelease --preid next --no-git-tag-version",
     "prepublishOnly": "npm run release:check",
     "release:check": "npm run build && npm test && npm pack --dry-run",
-    "release:publish": "npm publish --access public",
+    "release:auth": "npm whoami",
+    "release:publish": "npm run release:auth && npm publish --access public",
     "generate:element-kinds": "tsc && node scripts/generate-element-kinds-doc.mjs docs/gherkin.md",
     "run:example": "tsc && node scripts/run-example.mjs"
   },
