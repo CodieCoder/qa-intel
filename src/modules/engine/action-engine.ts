@@ -4,7 +4,19 @@ import {
   type Browser,
   type BrowserContext,
 } from "playwright";
-import type { Step } from "../dsl/index.js";
+import type {
+  CheckStep,
+  ClickStep,
+  NavigateStep,
+  RequestStep,
+  SelectStep,
+  Step,
+  ToggleStep,
+  TypeStep,
+  UncheckStep,
+  UploadStep,
+  WaitStep,
+} from "../dsl/index.js";
 import { AutoHealer, type HealingContext } from "../auto-healing/index.js";
 import { describeLocator, inspectLocator, resolveLocator } from "../locators/index.js";
 import {
@@ -19,6 +31,7 @@ import {
 } from "./types.js";
 import { resolveRuntimeEnvPlaceholders } from "./runtime-env-placeholders.js";
 import { createBrowserLaunchError, resolveBrowserSelection } from "./browser-selection.js";
+import { createDefaultCapabilityRegistry } from "../capabilities/builtins.js";
 
 function expandStepValue(value: string): string {
   return /\{\{[A-Z]/.test(value) ? resolveRuntimeEnvPlaceholders(value) : value;
@@ -33,6 +46,7 @@ export class ActionEngine {
   private config: EngineConfig;
   private logger: TestLogger;
   private autoHealer: AutoHealer;
+  private capabilityRegistry = createDefaultCapabilityRegistry();
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
@@ -447,154 +461,189 @@ export class ActionEngine {
 
   private async performAction(step: Step): Promise<ActionResult> {
     const page = this.getPage();
+    const capability = this.capabilityRegistry.find("step", step.type);
+    if (!capability) {
+      throw new Error(`Unknown step type: ${step.type}`);
+    }
+
+    const dependencies: Record<string, unknown> = { page };
+    if (this.config.autoHeal) dependencies.autoHealer = this.autoHealer;
+
+    const execution = await this.capabilityRegistry.execute(
+      capability.id,
+      step,
+      { handlers: this.actionCapabilityHandlers() },
+      dependencies,
+    );
+    if (!execution.ok) throw new Error(execution.failure.message);
+    return execution.data as ActionResult;
+  }
+
+  private actionCapabilityHandlers(): Readonly<
+    Record<string, (input: unknown) => Promise<ActionResult>>
+  > {
+    return {
+      "step.navigate": (input) => this.performNavigate(input as NavigateStep),
+      "step.click": (input) => this.performClick(input as ClickStep),
+      "step.type": (input) => this.performType(input as TypeStep),
+      "step.select": (input) => this.performSelect(input as SelectStep),
+      "step.wait": (input) => this.performWait(input as WaitStep),
+      "step.check": (input) => this.performCheck(input as CheckStep),
+      "step.uncheck": (input) => this.performUncheck(input as UncheckStep),
+      "step.toggle": (input) => this.performToggle(input as ToggleStep),
+      "step.upload": (input) => this.performUpload(input as UploadStep),
+      "step.request": (input) => this.performRequest(input as RequestStep),
+    };
+  }
+
+  private async performNavigate(step: NavigateStep): Promise<ActionResult> {
     const start = Date.now();
+    const url = this.resolveUrl(expandStepValue(step.url));
+    await this.getPage().goto(url, {
+      timeout: this.config.timeout,
+      waitUntil: "domcontentloaded",
+    });
+    return { success: true, duration: Date.now() - start };
+  }
 
-    switch (step.type) {
-      case "navigate": {
-        // Phase 3.11 — expand runtime-env placeholders in the navigation
-        // URL (e.g. `/loan-accounts/{{QA_ACCOUNT_ID}}`) BEFORE joining
-        // with baseUrl, otherwise the literal `{{…}}` ends up URL-encoded
-        // and the route resolves to a 400.
-        const url = this.resolveUrl(expandStepValue(step.url));
-        await page.goto(url, {
-          timeout: this.config.timeout,
-          waitUntil: "domcontentloaded",
-        });
-        return { success: true, duration: Date.now() - start };
-      }
+  private async performClick(step: ClickStep): Promise<ActionResult> {
+    const start = Date.now();
+    const locator = resolveLocator(this.getPage(), step.locator);
+    await locator.click({ timeout: this.config.timeout });
+    return {
+      success: true,
+      duration: Date.now() - start,
+      selector: describeLocator(step.locator),
+    };
+  }
 
-      case "click": {
-        const locator = resolveLocator(page, step.locator);
-        await locator.click({ timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
+  private async performType(step: TypeStep): Promise<ActionResult> {
+    const start = Date.now();
+    const locator = resolveLocator(this.getPage(), step.locator);
+    await locator.fill(expandStepValue(step.value), { timeout: this.config.timeout });
+    return {
+      success: true,
+      duration: Date.now() - start,
+      selector: describeLocator(step.locator),
+    };
+  }
 
-      case "type": {
-        const locator = resolveLocator(page, step.locator);
-        const value = expandStepValue(step.value);
-        await locator.fill(value, { timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
+  private async performSelect(step: SelectStep): Promise<ActionResult> {
+    const start = Date.now();
+    const locator = resolveLocator(this.getPage(), step.locator);
+    await locator.selectOption(expandStepValue(step.value), {
+      timeout: this.config.timeout,
+    });
+    return {
+      success: true,
+      duration: Date.now() - start,
+      selector: describeLocator(step.locator),
+    };
+  }
 
-      case "select": {
-        const locator = resolveLocator(page, step.locator);
-        const value = expandStepValue(step.value);
-        await locator.selectOption(value, {
-          timeout: this.config.timeout,
-        });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
+  private async performWait(step: WaitStep): Promise<ActionResult> {
+    const start = Date.now();
+    const timeout = step.timeout ?? this.config.timeout;
+    if (step.locator) {
+      const locator = resolveLocator(this.getPage(), step.locator);
+      await locator.waitFor({ timeout, state: "visible" });
+      return {
+        success: true,
+        duration: Date.now() - start,
+        selector: describeLocator(step.locator),
+      };
+    }
+    await this.getPage().waitForTimeout(timeout);
+    return { success: true, duration: Date.now() - start };
+  }
 
-      case "wait": {
-        const timeout = step.timeout ?? this.config.timeout;
-        if (step.locator) {
-          const locator = resolveLocator(page, step.locator);
-          await locator.waitFor({ timeout, state: "visible" });
-          return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-        }
-        await page.waitForTimeout(timeout);
-        return { success: true, duration: Date.now() - start };
-      }
+  private async performCheck(step: CheckStep): Promise<ActionResult> {
+    return this.performLocatorAction(step, "check");
+  }
 
-      case "request": {
-        // Expand placeholders in the request URL for symmetry with `navigate`.
-        const url = this.resolveUrl(expandStepValue(step.url));
-        const method = step.method;
-        const requestHeaders: Record<string, string> = {
-          "X-Request-Id": this.logger.getTraceId(),
-          ...step.headers,
-        };
+  private async performUncheck(step: UncheckStep): Promise<ActionResult> {
+    return this.performLocatorAction(step, "uncheck");
+  }
 
-        // Parse body if provided (RequestStep.body is string; expand runtime {{ENV}} placeholders)
-        let bodyData: string | undefined;
-        if (step.body) {
-          bodyData = expandStepValue(step.body);
-          // Set content-type if not already set and body looks like JSON
-          if (
-            !requestHeaders["content-type"] &&
-            !requestHeaders["Content-Type"]
-          ) {
-            try {
-              JSON.parse(bodyData);
-              requestHeaders["content-type"] = "application/json";
-            } catch {
-              // Not JSON, leave content-type unset
-            }
-          }
-        }
+  private async performToggle(step: ToggleStep): Promise<ActionResult> {
+    return this.performLocatorAction(step, "click");
+  }
 
-        // Use Playwright's API request context (no browser page needed)
-        const context = this.context!;
-        const apiContext = context.request;
+  private async performUpload(step: UploadStep): Promise<ActionResult> {
+    const start = Date.now();
+    const locator = resolveLocator(this.getPage(), step.locator);
+    await locator.setInputFiles(expandStepValue(step.value), {
+      timeout: this.config.timeout,
+    });
+    return {
+      success: true,
+      duration: Date.now() - start,
+      selector: describeLocator(step.locator),
+    };
+  }
 
-        const response = await apiContext.fetch(url, {
-          method,
-          headers: requestHeaders,
-          data: bodyData,
-          timeout: this.config.timeout,
-        });
+  private async performLocatorAction(
+    step: CheckStep | UncheckStep | ToggleStep,
+    action: "check" | "uncheck" | "click",
+  ): Promise<ActionResult> {
+    const start = Date.now();
+    const locator = resolveLocator(this.getPage(), step.locator);
+    await locator[action]({ timeout: this.config.timeout });
+    return {
+      success: true,
+      duration: Date.now() - start,
+      selector: describeLocator(step.locator),
+    };
+  }
 
-        // Capture response data
-        const responseStatus = response.status();
-        const responseHeaders = response.headers();
-        let responseBody: unknown;
+  private async performRequest(step: RequestStep): Promise<ActionResult> {
+    const start = Date.now();
+    const url = this.resolveUrl(expandStepValue(step.url));
+    const requestHeaders: Record<string, string> = {
+      "X-Request-Id": this.logger.getTraceId(),
+      ...step.headers,
+    };
+
+    let bodyData: string | undefined;
+    if (step.body) {
+      bodyData = expandStepValue(step.body);
+      if (!requestHeaders["content-type"] && !requestHeaders["Content-Type"]) {
         try {
-          const contentType = responseHeaders["content-type"] ?? "";
-          if (contentType.includes("application/json")) {
-            responseBody = await response.json();
-          } else {
-            responseBody = await response.text();
-          }
+          JSON.parse(bodyData);
+          requestHeaders["content-type"] = "application/json";
         } catch {
-          // Response body may not be readable
+          // Non-JSON request bodies retain the caller's content type.
         }
-
-        // Inject into network log so assertion engine can find it
-        this.logger.logNetwork({
-          method,
-          url,
-          status: responseStatus,
-          requestHeaders,
-          responseHeaders,
-          requestBody:
-            bodyData !== undefined ? tryParseJSONSafe(bodyData) : undefined,
-          responseBody,
-        });
-
-        return { success: true, duration: Date.now() - start };
-      }
-
-      case "check": {
-        const locator = resolveLocator(page, step.locator);
-        await locator.check({ timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
-
-      case "uncheck": {
-        const locator = resolveLocator(page, step.locator);
-        await locator.uncheck({ timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
-
-      case "toggle": {
-        const locator = resolveLocator(page, step.locator);
-        await locator.click({ timeout: this.config.timeout });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
-
-      case "upload": {
-        const locator = resolveLocator(page, step.locator);
-        await locator.setInputFiles(expandStepValue(step.value), {
-          timeout: this.config.timeout,
-        });
-        return { success: true, duration: Date.now() - start, selector: describeLocator(step.locator) };
-      }
-
-      default: {
-        const _exhaustive: never = step;
-        throw new Error(`Unknown step type: ${(_exhaustive as Step).type}`);
       }
     }
+
+    const response = await this.context!.request.fetch(url, {
+      method: step.method,
+      headers: requestHeaders,
+      data: bodyData,
+      timeout: this.config.timeout,
+    });
+    const responseHeaders = response.headers();
+    let responseBody: unknown;
+    try {
+      responseBody = (responseHeaders["content-type"] ?? "").includes("application/json")
+        ? await response.json()
+        : await response.text();
+    } catch {
+      // Some response bodies are not readable after redirects or streaming.
+    }
+
+    this.logger.logNetwork({
+      method: step.method,
+      url,
+      status: response.status(),
+      requestHeaders,
+      responseHeaders,
+      requestBody: bodyData !== undefined ? tryParseJSONSafe(bodyData) : undefined,
+      responseBody,
+    });
+
+    return { success: true, duration: Date.now() - start };
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
