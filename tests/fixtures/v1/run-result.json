@@ -1,0 +1,53 @@
+{
+  "runId": "run-v1-compatibility",
+  "traceId": "trace-v1-compatibility",
+  "status": "passed",
+  "summary": {
+    "totalContracts": 1,
+    "passed": 1,
+    "failed": 0
+  },
+  "contracts": [
+    {
+      "intent": "representative_browser_and_api_contract",
+      "status": "passed",
+      "durationMs": 42,
+      "steps": [
+        {
+          "stepId": "trace-v1-compatibility-step-0",
+          "type": "navigate",
+          "status": "passed",
+          "durationMs": 10,
+          "artifacts": {}
+        }
+      ],
+      "assertions": [
+        {
+          "assertionId": "trace-v1-compatibility-assert-0",
+          "domain": "ui",
+          "type": "visible",
+          "targetRef": "heading \"Dashboard\"",
+          "status": "passed"
+        },
+        {
+          "assertionId": "trace-v1-compatibility-assert-1",
+          "domain": "api",
+          "type": "status_code",
+          "endpointRef": "/api/session",
+          "status": "passed",
+          "expected": {
+            "status": 200
+          },
+          "actual": {
+            "status": 200
+          }
+        }
+      ],
+      "summary": {
+        "passed": 3,
+        "failed": 0
+      }
+    }
+  ],
+  "failures": []
+}

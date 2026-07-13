@@ -89,7 +89,10 @@ export {
   type RequestAction,
 } from "./schema.js";
 
-export { AssertionResultSchema, type AssertionResult } from "./results.js";
+export {
+  AssertionResultSchema,
+  type AssertionResult,
+} from "../assertions/results.js";
 
 // ─── Utility: Parse & Validate ───────────────────────────────────────────────
 
