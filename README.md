@@ -21,12 +21,14 @@ One agent can generate or update a `.feature` file. Another can compile and run 
 
 ```text
 Gherkin feature
-  -> strict compiler
+  -> strict compiler over ordered built-in capabilities
   -> suite.json with structured locators
-  -> Playwright browser/API execution
+  -> registered Playwright browser/API handlers
   -> JSON result + screenshots + network/console logs
   -> optional SQLite history for later investigation
 ```
+
+Internally, canonical schemas, an immutable built-in capability registry, and defaulted runtime services keep parsing, execution, result mapping, artifacts, and persistence isolated. These boundaries require no consumer configuration and are not a public plugin API.
 
 The core idea is semantic-first targeting:
 
@@ -263,6 +265,8 @@ When a locator-based action fails after normal retries, the healer receives the 
 | [docs/gherkin.md](docs/gherkin.md) | Supported strict Gherkin syntax |
 | [docs/dsl.md](docs/dsl.md) | Compiled `suite.json` and `LocatorSpec` reference |
 | [docs/configuration.md](docs/configuration.md) | CLI, environment, programmatic, artifact, and SQLite configuration |
+| [docs/testing.md](docs/testing.md) | TDD policy, test layers, compatibility fixtures, and validation commands |
+| [docs/extensibility.md](docs/extensibility.md) | Extension invariants, current change path, isolation rules, and implemented internal boundaries |
 
 ## Contributing
 
