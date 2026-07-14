@@ -7,4 +7,4 @@ export {
 } from "./types.js";
 
 export * from "./browser-selection.js";
-export * from "./v2-tools/index.js";
+export * from "./tools/index.js";

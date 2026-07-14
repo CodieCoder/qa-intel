@@ -1,4 +1,4 @@
-import type { ResolveUIElementInput, ResolveUIElementOutput } from "../../types/index.js";
+import type { ResolveUIElementInput, ResolveUIElementOutput } from "../../tools/schema.js";
 import { describeLocator } from "../../locators/index.js";
 
 /**

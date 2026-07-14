@@ -1,4 +1,4 @@
-import type { ValidateAPIResponseInput, ValidateAPIResponseOutput } from "../../types/index.js";
+import type { ValidateAPIResponseInput, ValidateAPIResponseOutput } from "../../tools/schema.js";
 
 /**
  * Validates an API response against expected structure/constraints.
