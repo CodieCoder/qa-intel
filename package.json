@@ -1,6 +1,6 @@
 {
   "name": "@qutecoder/qa-intel",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "author": {
     "name": "CodieCoder"
@@ -78,6 +78,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "start": "node dist/cli.js",
+    "format": "node -e \"console.error('No formatter is configured for this repo yet.'); process.exit(1)\"",
     "lint": "echo \"skip\"",
     "typecheck": "tsc --noEmit",
     "check:fast": "npm run build && node --test tests/package-smoke.test.mjs",
@@ -89,9 +90,10 @@
     "bump:prerelease": "npm version prerelease --preid next --no-git-tag-version",
     "prepublishOnly": "npm run release:check",
     "release:check": "npm run build && npm test && npm pack --dry-run",
-    "release:publish": "npm publish --access public",
+    "release:auth": "npm whoami",
+    "release:publish": "npm run release:auth && npm publish --access public",
     "generate:element-kinds": "tsc && node scripts/generate-element-kinds-doc.mjs docs/gherkin.md",
-    "run:example": "tsc && node dist/cli.js examples/login.feature"
+    "run:example": "tsc && node scripts/run-example.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

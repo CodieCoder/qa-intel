@@ -1,4 +1,4 @@
-import type { GetStepArtifactsInput, GetStepArtifactsOutput } from "../../types/index.js";
+import type { GetStepArtifactsInput, GetStepArtifactsOutput } from "../../tools/schema.js";
 import { EngineManager } from "./engine-manager.js";
 import { LocalArtifactStorage } from "../../store/index.js";
 

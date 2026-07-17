@@ -1,20 +1,32 @@
 import type {
   ExecuteContractInput,
   ExecuteContractOutput,
+} from "../../tools/schema.js";
+import type {
   StepResult,
   ContractResult,
   FailureSummary,
   FixHint,
   FailureType,
-} from "../../types/index.js";
+} from "../../results/schema.js";
 
 import { TestLogger, type NetworkEntry } from "../../logger/index.js";
-import { LocalArtifactStorage } from "../../store/index.js";
-import { ActionEngine, type ConsoleLogEntry } from "../action-engine.js";
+import type { ConsoleLogEntry } from "../action-engine.js";
 import type { EngineConfig } from "../types.js";
-import { AssertionEngine } from "../../assertions/index.js";
+import { BrowserLaunchError } from "../browser-selection.js";
 import { generateFixHintsTool } from "./generateFixHints.js";
-import { describeLocator } from "../../locators/index.js";
+import {
+  createContractResult,
+  mapAssertionEvaluation,
+  mapStepEvent,
+  type MappedAssertionResult,
+} from "../../results/mappers.js";
+import {
+  createDefaultRuntimeServices,
+  type RuntimeActionEngine,
+  type RuntimeArtifactStorage,
+  type RuntimeServices,
+} from "../runtime-services.js";
 
 const DEFAULT_ARTIFACT_DIR = ".qa-results/artifacts";
 
@@ -46,6 +58,19 @@ export async function executeContractTool(
   input: ExecuteContractInput,
   logger?: TestLogger
 ): Promise<ExecuteContractFullOutput> {
+  return executeContractWithServices(
+    input,
+    createDefaultRuntimeServices(),
+    logger,
+  );
+}
+
+/** Internal orchestration entry point used for deterministic service injection. */
+export async function executeContractWithServices(
+  input: ExecuteContractInput,
+  services: RuntimeServices,
+  logger?: TestLogger,
+): Promise<ExecuteContractFullOutput> {
   const contract = input.contract;
 
   if (!contract || !contract.steps || !contract.assertions) {
@@ -60,23 +85,28 @@ export async function executeContractTool(
 
   const traceId = input.traceId;
   const artifactDir = input.artifactDir ?? DEFAULT_ARTIFACT_DIR;
-  const storage = new LocalArtifactStorage(artifactDir);
-  const log = logger ?? new TestLogger({ stdout: false, collect: true });
-  const engineConfig: Partial<EngineConfig> = {
-    baseUrl: input.baseUrl,
-    autoHeal: input.config?.autoHeal ?? false,
-  };
-  if (input.config?.headless !== undefined) engineConfig.headless = input.config.headless;
-  if (input.config?.timeoutMs !== undefined) engineConfig.timeout = input.config.timeoutMs;
-
-  const engine = new ActionEngine(log, engineConfig);
-  const assertionEngine = new AssertionEngine(10_000);
-  const startTime = Date.now();
+  let storage: RuntimeArtifactStorage | undefined;
+  let engine: RuntimeActionEngine | undefined;
 
   try {
+    storage = services.createArtifactStorage(artifactDir);
+    const log = logger ?? services.createLogger();
+    const engineConfig: Partial<EngineConfig> = {
+      baseUrl: input.baseUrl,
+      autoHeal: input.config?.autoHeal ?? false,
+      browserExecutablePath: input.config?.browserExecutablePath,
+      browserChannel: input.config?.browserChannel,
+    };
+    if (input.config?.headless !== undefined) engineConfig.headless = input.config.headless;
+    if (input.config?.timeoutMs !== undefined) engineConfig.timeout = input.config.timeoutMs;
+
+    engine = services.createActionEngine(log, engineConfig);
+    const assertionEngine = services.createAssertionEngine(10_000);
+    const startTime = services.now();
+
     await engine.launch();
 
-    // ─── Execute steps (no adapter — DSL and V2 use same naming now) ──
+    // ─── Execute canonical DSL steps ──────────────────────────────────
     const stepEvents = await engine.executeAll(contract.steps);
 
     const steps: StepResult[] = [];
@@ -108,48 +138,22 @@ export async function executeContractTool(
         }
       }
 
-      // Classify failure type
-      let error: StepResult["error"];
-      if (s.result === "failed" && s.error) {
-        error = {
-          type: classifyFailureType(s.error),
-          message: s.error,
-        };
-      }
-
-      steps.push({
+      steps.push(mapStepEvent({
         stepId,
-        type: s.type,
-        status: s.result === "success" ? "passed" : s.result as "failed" | "skipped",
-        durationMs: s.duration,
-        error,
-        targetRef: s.targetRef,
-        selector: s.selector,
-        value: s.value,
-        artifacts: {
-          beforeScreenshot: beforePath,
-          afterScreenshot: afterPath,
-          domSnapshot,
-        },
-      });
+        event: s,
+        errorType: s.result === "failed" && s.error
+          ? classifyFailureType(s.error)
+          : undefined,
+        beforeScreenshot: beforePath,
+        afterScreenshot: afterPath,
+        domSnapshot,
+      }));
     }
 
     const hasStepFailure = steps.some((s) => s.status === "failed");
 
     // ─── Execute assertions ───────────────────────────────────────────
-    type AssertionResultEntry = {
-      assertionId: string;
-      domain: "ui" | "api";
-      type: string;
-      targetRef?: string;
-      endpointRef?: string;
-      status: "passed" | "failed";
-      expected?: any;
-      actual?: any;
-      diagnostics?: { selector?: string; found?: boolean };
-    };
-
-    const assertions: AssertionResultEntry[] = [];
+    const assertions: MappedAssertionResult[] = [];
 
     if (!hasStepFailure && contract.assertions.length > 0) {
       const page = engine.getPage();
@@ -166,37 +170,11 @@ export async function executeContractTool(
       for (let i = 0; i < results.length; i++) {
         const r = results[i];
         const assertion = contract.assertions[i];
-        const isApiAssertion =
-          assertion.type === "status_code" ||
-          assertion.type === "response_body_contains" ||
-          assertion.type === "response_body_equals" ||
-          assertion.type === "response_header_contains" ||
-          assertion.type === "trace_id_present";
-
-        if (isApiAssertion) {
-          assertions.push({
-            assertionId: `${traceId}-assert-${i}`,
-            domain: "api",
-            type: assertion.type,
-            endpointRef: "url" in assertion ? assertion.url : undefined,
-            status: r.status,
-            expected: r.expected ? { status: parseInt(r.expected) || undefined } : undefined,
-            actual: r.actual ? { status: parseInt(r.actual) || undefined, body: r.actual } : undefined,
-          });
-        } else {
-          assertions.push({
-            assertionId: `${traceId}-assert-${i}`,
-            domain: "ui",
-            type: assertion.type,
-            targetRef: "locator" in assertion ? describeLocator(assertion.locator) : undefined,
-            status: r.status,
-            expected: r.expected,
-            actual: r.actual,
-            diagnostics: "locator" in assertion
-              ? { selector: describeLocator(assertion.locator) }
-              : undefined,
-          });
-        }
+        assertions.push(mapAssertionEvaluation({
+          assertionId: `${traceId}-assert-${i}`,
+          assertion,
+          evaluation: r,
+        }));
       }
     }
 
@@ -232,6 +210,7 @@ export async function executeContractTool(
           reason: step.error?.message,
           step: step.type,
           selector: step.selector,
+          locatorDiagnostics: step.error?.details?.locatorDiagnostics,
         },
       });
 
@@ -255,7 +234,8 @@ export async function executeContractTool(
         failure: {
           reason: `${a.type} assertion failed`,
           assertion: a.type,
-          selector: a.diagnostics?.selector,
+          selector: a.domain === "ui" ? a.diagnostics?.selector : undefined,
+          locatorDiagnostics: a.domain === "ui" ? a.diagnostics : undefined,
         },
       });
 
@@ -267,8 +247,8 @@ export async function executeContractTool(
       };
 
       // Attach network trace for API failures
-      if (layer === "api" && a.endpointRef) {
-        const matching = networkLog.filter((n) => n.url.includes(a.endpointRef!));
+      if (a.domain === "api" && a.endpointRef) {
+        const matching = networkLog.filter((n) => n.url.includes(a.endpointRef));
         if (matching.length > 0) {
           const last = matching[matching.length - 1];
           failure.location = `${last.method} ${last.url} → ${last.status}`;
@@ -289,19 +269,19 @@ export async function executeContractTool(
       };
     }
 
-    const result: ContractResult = {
+    const result = createContractResult({
       intent: contract.intent,
       status,
-      durationMs: Date.now() - startTime,
+      durationMs: services.now() - startTime,
       steps,
-      assertions: assertions as any,
+      assertions,
       summary: {
         passed: passedCount,
         failed: failedCount,
       },
       failure: rootFailure,
       failures: failures.length > 0 ? failures : undefined,
-    };
+    });
 
     return {
       ok: true,
@@ -313,15 +293,21 @@ export async function executeContractTool(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const details = err instanceof BrowserLaunchError ? err.details : undefined;
     return {
       ok: false,
       error: {
         code: "EXECUTION_FAILED",
         message: `Contract execution failed: ${message}`,
+        details,
       },
     };
   } finally {
-    await engine.close();
+    try {
+      await engine?.close();
+    } finally {
+      await storage?.close?.();
+    }
   }
 }
 

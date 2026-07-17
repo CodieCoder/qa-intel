@@ -1,16 +1,20 @@
 import type {
   RunSuiteInput,
   RunSuiteOutput,
-  RunResult,
+} from "../../tools/schema.js";
+import type {
   ContractResult,
   FailureSummary,
-} from "../../types/index.js";
+} from "../../results/schema.js";
 import type { NetworkEntry } from "../../logger/index.js";
 import type { ConsoleLogEntry } from "../action-engine.js";
 import { parseTestSuite, compileGherkin, type TestSuite } from "../../dsl/index.js";
-import { TestLogger } from "../../logger/index.js";
-import { ResultStore } from "../../store/index.js";
-import { executeContractTool } from "./executeContract.js";
+import { executeContractWithServices } from "./executeContract.js";
+import { createRunResult } from "../../results/mappers.js";
+import {
+  createDefaultRuntimeServices,
+  type RuntimeServices,
+} from "../runtime-services.js";
 
 /**
  * Executes a full test suite: compiles if needed, runs all contracts, aggregates results.
@@ -24,8 +28,16 @@ import { executeContractTool } from "./executeContract.js";
 export async function runSuiteTool(
   input: RunSuiteInput
 ): Promise<RunSuiteOutput> {
-  const runId = crypto.randomUUID();
-  const traceId = crypto.randomUUID();
+  return runSuiteWithServices(input, createDefaultRuntimeServices());
+}
+
+/** Internal orchestration entry point used for deterministic service injection. */
+export async function runSuiteWithServices(
+  input: RunSuiteInput,
+  services: RuntimeServices,
+): Promise<RunSuiteOutput> {
+  const runId = services.createId();
+  const traceId = services.createId();
 
   try {
     // ─── Parse suite ──────────────────────────────────────────────────
@@ -87,9 +99,9 @@ export async function runSuiteTool(
       const contract = validated.contracts[i];
       const contractTraceId = `${traceId}-c${i}`;
 
-      const logger = new TestLogger({ stdout: false, collect: true });
+      const logger = services.createLogger();
 
-      const result = await executeContractTool(
+      const result = await executeContractWithServices(
         {
           traceId: contractTraceId,
           contract,
@@ -97,7 +109,8 @@ export async function runSuiteTool(
           artifactDir,
           config: input.config,
         },
-        logger
+        services,
+        logger,
       );
 
       if (result.ok && result.data) {
@@ -127,6 +140,7 @@ export async function runSuiteTool(
           failure: {
             layer: "ui",
             rootCause: result.error?.message ?? "Unknown execution error",
+            details: result.error?.details,
           },
         });
 
@@ -134,6 +148,7 @@ export async function runSuiteTool(
           intent: contract.intent,
           layer: "ui",
           issue: result.error?.message ?? "Unknown execution error",
+          details: result.error?.details,
         });
       }
 
@@ -148,7 +163,7 @@ export async function runSuiteTool(
     const failed = contractResults.filter((r) => r.status !== "passed").length;
     const status = failed > 0 ? "failed" : "passed";
 
-    const runResult: RunResult = {
+    const runResult = createRunResult({
       runId,
       traceId,
       status,
@@ -159,21 +174,30 @@ export async function runSuiteTool(
       },
       contracts: contractResults,
       failures: allFailures,
-    };
+    });
 
     // ─── Persist to SQLite (when configured) ──────────────────────────
     if (input.resultsDb) {
+      let store: ReturnType<RuntimeServices["createResultStore"]> | undefined;
       try {
-        const store = new ResultStore(input.resultsDb);
+        store = services.createResultStore(input.resultsDb);
         store.saveRun(runResult, {
           networkLogs: allNetworkLogs,
           consoleLogs: allConsoleLogs,
         });
-        store.close();
       } catch (dbErr) {
         // Non-fatal: log to stderr so it doesn't pollute JSON stdout
         const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
         process.stderr.write(`[qa-intel] Warning: failed to persist results to DB: ${msg}\n`);
+      } finally {
+        if (store) {
+          try {
+            store.close();
+          } catch (closeErr) {
+            const msg = closeErr instanceof Error ? closeErr.message : String(closeErr);
+            process.stderr.write(`[qa-intel] Warning: failed to close results DB: ${msg}\n`);
+          }
+        }
       }
     }
 

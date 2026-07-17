@@ -1,12 +1,19 @@
 import type { Page } from "playwright";
 import type { Assertion, AssertionResult, LocatorSpec } from "../dsl/index.js";
 import type { NetworkEntry } from "../logger/index.js";
-import { describeLocator, resolveLocator } from "../locators/index.js";
+import { describeLocator, inspectLocator, resolveLocator } from "../locators/index.js";
+import { createDefaultCapabilityRegistry } from "../capabilities/builtins.js";
+
+type AssertionByType<TType extends Assertion["type"]> = Extract<
+  Assertion,
+  { type: TType }
+>;
 
 // ─── Assertion Engine ────────────────────────────────────────────────────────
 
 export class AssertionEngine {
   private timeout: number;
+  private capabilityRegistry = createDefaultCapabilityRegistry();
 
   constructor(timeout: number = 5_000) {
     this.timeout = timeout;
@@ -21,52 +28,29 @@ export class AssertionEngine {
     assertion: Assertion,
     networkLog?: readonly NetworkEntry[]
   ): Promise<AssertionResult> {
-    const start = Date.now();
     const desc = this.describe(assertion);
 
     try {
-      switch (assertion.type) {
-        case "visible":
-          return await this.assertVisible(page, assertion.locator, desc);
-
-        case "not_visible":
-          return await this.assertNotVisible(page, assertion.locator, desc);
-
-        case "exists":
-          return await this.assertExists(page, assertion.locator, desc);
-
-        case "text_equals":
-          return await this.assertTextEquals(page, assertion.locator, assertion.value, desc);
-
-        case "text_contains":
-          return await this.assertTextContains(page, assertion.locator, assertion.value, desc);
-
-        case "url_equals":
-          return await this.assertUrlEquals(page, assertion.value, desc);
-
-        case "url_contains":
-          return await this.assertUrlContains(page, assertion.value, desc);
-
-        case "status_code":
-          return this.assertStatusCode(networkLog ?? [], assertion.url, assertion.value, desc);
-
-        case "response_body_contains":
-          return this.assertResponseBodyContains(networkLog ?? [], assertion.url, assertion.value, desc);
-
-        case "response_body_equals":
-          return this.assertResponseBodyEquals(networkLog ?? [], assertion.url, assertion.path, assertion.value, desc);
-
-        case "response_header_contains":
-          return this.assertResponseHeaderContains(networkLog ?? [], assertion.url, assertion.header, assertion.value, desc);
-
-        case "trace_id_present":
-          return this.assertTraceIdPresent(networkLog ?? [], assertion.url, desc);
-
-        default: {
-          const _exhaustive: never = assertion;
-          throw new Error(`Unknown assertion type: ${(_exhaustive as Assertion).type}`);
-        }
+      const capability = this.capabilityRegistry.find(
+        "assertion",
+        assertion.type,
+      );
+      if (!capability) {
+        throw new Error(`Unknown assertion type: ${assertion.type}`);
       }
+
+      const logs = networkLog ?? [];
+      const dependencies = capability.resultDomain === "api"
+        ? { networkLog: logs }
+        : { page };
+      const execution = await this.capabilityRegistry.execute(
+        capability.id,
+        assertion,
+        { handlers: this.assertionCapabilityHandlers(page, logs, desc) },
+        dependencies,
+      );
+      if (!execution.ok) throw new Error(execution.failure.message);
+      return execution.data as AssertionResult;
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       return {
@@ -75,6 +59,95 @@ export class AssertionEngine {
         reason: error,
       };
     }
+  }
+
+  private assertionCapabilityHandlers(
+    page: Page,
+    networkLog: readonly NetworkEntry[],
+    desc: string,
+  ): Readonly<Record<string, (input: unknown) => Promise<AssertionResult>>> {
+    return {
+      "assertion.visible": async (input) => {
+        const assertion = input as AssertionByType<"visible">;
+        return this.assertVisible(page, assertion.locator, desc);
+      },
+      "assertion.not_visible": async (input) => {
+        const assertion = input as AssertionByType<"not_visible">;
+        return this.assertNotVisible(page, assertion.locator, desc);
+      },
+      "assertion.exists": async (input) => {
+        const assertion = input as AssertionByType<"exists">;
+        return this.assertExists(page, assertion.locator, desc);
+      },
+      "assertion.text_equals": async (input) => {
+        const assertion = input as AssertionByType<"text_equals">;
+        return this.assertTextEquals(
+          page,
+          assertion.locator,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.text_contains": async (input) => {
+        const assertion = input as AssertionByType<"text_contains">;
+        return this.assertTextContains(
+          page,
+          assertion.locator,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.url_equals": async (input) => {
+        const assertion = input as AssertionByType<"url_equals">;
+        return this.assertUrlEquals(page, assertion.value, desc);
+      },
+      "assertion.url_contains": async (input) => {
+        const assertion = input as AssertionByType<"url_contains">;
+        return this.assertUrlContains(page, assertion.value, desc);
+      },
+      "assertion.status_code": async (input) => {
+        const assertion = input as AssertionByType<"status_code">;
+        return this.assertStatusCode(
+          networkLog,
+          assertion.url,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.response_body_contains": async (input) => {
+        const assertion = input as AssertionByType<"response_body_contains">;
+        return this.assertResponseBodyContains(
+          networkLog,
+          assertion.url,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.response_body_equals": async (input) => {
+        const assertion = input as AssertionByType<"response_body_equals">;
+        return this.assertResponseBodyEquals(
+          networkLog,
+          assertion.url,
+          assertion.path,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.response_header_contains": async (input) => {
+        const assertion = input as AssertionByType<"response_header_contains">;
+        return this.assertResponseHeaderContains(
+          networkLog,
+          assertion.url,
+          assertion.header,
+          assertion.value,
+          desc,
+        );
+      },
+      "assertion.trace_id_present": async (input) => {
+        const assertion = input as AssertionByType<"trace_id_present">;
+        return this.assertTraceIdPresent(networkLog, assertion.url, desc);
+      },
+    };
   }
 
   /**
@@ -114,6 +187,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" is not visible`,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -134,6 +208,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" is still visible`,
+        diagnostics: await safeInspectLocator(page, locatorSpec, "hidden"),
       };
     }
   }
@@ -154,6 +229,7 @@ export class AssertionEngine {
         assertion: desc,
         status: "failed",
         reason: `Element "${target}" does not exist in DOM`,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -182,6 +258,7 @@ export class AssertionEngine {
         reason: `Text mismatch for "${target}"`,
         expected,
         actual: trimmed,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     } catch (err) {
       return {
@@ -189,6 +266,7 @@ export class AssertionEngine {
         status: "failed",
         reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -217,6 +295,7 @@ export class AssertionEngine {
         reason: `Text does not contain expected value for "${target}"`,
         expected,
         actual: trimmed,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     } catch (err) {
       return {
@@ -224,6 +303,7 @@ export class AssertionEngine {
         status: "failed",
         reason: `Could not read text from "${target}": ${err instanceof Error ? err.message : String(err)}`,
         expected,
+        diagnostics: await safeInspectLocator(page, locatorSpec),
       };
     }
   }
@@ -563,5 +643,20 @@ export class AssertionEngine {
       case "trace_id_present":
         return `trace_id_present: ${assertion.url}`;
     }
+  }
+}
+
+async function safeInspectLocator(
+  page: Page,
+  locatorSpec: LocatorSpec,
+  expectedState: "visible" | "hidden" = "visible",
+): Promise<Record<string, any>> {
+  try {
+    return await inspectLocator(page, locatorSpec, { expectedState });
+  } catch (err) {
+    return {
+      selector: describeLocator(locatorSpec),
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }

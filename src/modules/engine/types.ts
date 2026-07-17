@@ -21,6 +21,10 @@ export interface EngineConfig {
   viewport: { width: number; height: number };
   /** Enable experimental LLM locator healing after normal retries fail */
   autoHeal: boolean;
+  /** Explicit browser executable path to pass to Playwright Chromium */
+  browserExecutablePath?: string;
+  /** Explicit Playwright Chromium channel, such as chrome or msedge */
+  browserChannel?: string;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {

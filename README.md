@@ -21,12 +21,14 @@ One agent can generate or update a `.feature` file. Another can compile and run 
 
 ```text
 Gherkin feature
-  -> strict compiler
+  -> strict compiler over ordered built-in capabilities
   -> suite.json with structured locators
-  -> Playwright browser/API execution
+  -> registered Playwright browser/API handlers
   -> JSON result + screenshots + network/console logs
   -> optional SQLite history for later investigation
 ```
+
+Internally, canonical schemas, an immutable built-in capability registry, and defaulted runtime services keep parsing, execution, result mapping, artifacts, and persistence isolated. These boundaries require no consumer configuration and are not a public plugin API.
 
 The core idea is semantic-first targeting:
 
@@ -102,10 +104,14 @@ Useful flags:
 |------|-------------|
 | `--base-url <url>` | Base URL for relative navigation and API requests |
 | `--headed` | Show the browser |
+| `--browser-executable-path <path>` | Launch a specific Chromium-compatible browser executable |
+| `--browser-channel <channel>` | Launch a Playwright Chromium channel such as `chrome` or `msedge` |
 | `--fail-fast` | Stop after the first failing contract |
 | `--artifact-dir <dir>` | Screenshot/artifact output directory |
 | `--results-db <path>` | SQLite results database path, default `.qa-results/results.db` |
 | `--auto-heal` | Enable experimental LLM locator healing |
+
+Browser selection precedence is: explicit executable path, explicit channel, `QA_INTEL_BROWSER_EXECUTABLE_PATH`, `QA_INTEL_BROWSER_CHANNEL`, then bundled Playwright Chromium.
 
 ## Gherkin Syntax
 
@@ -185,6 +191,28 @@ All CLI output is JSON. A passing run looks like:
 
 Failures include step/assertion context, screenshot paths, layer classification, and fix hints. During execution, QA Intel captures browser console messages, uncaught page errors, filtered network traffic, request/response bodies when available, and trace headers for API assertions.
 
+Failed semantic locators include additive diagnostics:
+
+```json
+{
+  "selector": "heading \"Dashboard\"",
+  "found": false,
+  "matchedCount": 0,
+  "visibleCount": 0,
+  "nearestMatches": [
+    {
+      "kind": "text",
+      "text": "Dashboard",
+      "score": 1,
+      "reason": "Visible text matches \"Dashboard\", but it is exposed as text, not heading."
+    }
+  ],
+  "guidance": [
+    "Target text exists but not as heading. Fix the accessible HTML so it exposes heading semantics, or change the contract target kind to text."
+  ]
+}
+```
+
 ## SQLite Investigation
 
 CLI runs persist history to `.qa-results/results.db` by default. Pass `--results-db <path>` to choose another database:
@@ -237,6 +265,8 @@ When a locator-based action fails after normal retries, the healer receives the 
 | [docs/gherkin.md](docs/gherkin.md) | Supported strict Gherkin syntax |
 | [docs/dsl.md](docs/dsl.md) | Compiled `suite.json` and `LocatorSpec` reference |
 | [docs/configuration.md](docs/configuration.md) | CLI, environment, programmatic, artifact, and SQLite configuration |
+| [docs/testing.md](docs/testing.md) | TDD policy, test layers, compatibility fixtures, and validation commands |
+| [docs/extensibility.md](docs/extensibility.md) | Extension invariants, current change path, isolation rules, and implemented internal boundaries |
 
 ## Contributing
 
@@ -253,6 +283,7 @@ yarn install
 yarn build
 yarn typecheck
 yarn test
+yarn run:example
 ```
 
 ## Keywords

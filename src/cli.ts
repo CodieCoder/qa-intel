@@ -164,6 +164,8 @@ async function executeSuite(suiteRaw: any, args: string[]) {
   const baseUrl = getFlagValue(args, "--base-url");
   const failFast = args.includes("--fail-fast");
   const autoHeal = args.includes("--auto-heal");
+  const browserExecutablePath = getFlagValue(args, "--browser-executable-path");
+  const browserChannel = getFlagValue(args, "--browser-channel");
   const artifactDir =
     getFlagValue(args, "--artifact-dir") ?? ".qa-results/artifacts";
   const resultsDb =
@@ -179,6 +181,8 @@ async function executeSuite(suiteRaw: any, args: string[]) {
         headless: !args.includes("--headed"),
         failFast,
         autoHeal,
+        browserExecutablePath,
+        browserChannel,
       },
     });
 
@@ -230,6 +234,8 @@ const VALUE_FLAGS = new Set([
   "--out-dir",
   "--artifact-dir",
   "--results-db",
+  "--browser-executable-path",
+  "--browser-channel",
 ]);
 
 function rejectUnexpectedPositional(args: string[], startIndex: number): void {
