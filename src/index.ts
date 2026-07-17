@@ -1,11 +1,11 @@
 // ─── QA Intel — Public API ──────────────────────────────────────────────────
 
-// Types: Zod schemas for tool I/O, results (V2 output types)
+// Types: compatibility exports for canonical tool I/O and public results
 export * from "./modules/types/index.js";
 
 // DSL: Step/assertion schemas, Gherkin compiler
 // Note: DSL has its own AssertionResult (internal engine result) which
-// conflicts with the V2 AssertionResult from types. Re-export explicitly.
+// conflicts with the public AssertionResult from results. Re-export explicitly.
 export {
   // ARIA role vocabulary
   ARIA_ROLES,
@@ -138,7 +138,7 @@ export * from "./modules/assertions/index.js";
 // Generators: Test data generators for {{gen.*}} placeholders
 export * from "./modules/generators/index.js";
 
-// Engine: ActionEngine + v2 tool functions
+// Engine: ActionEngine + tool functions
 export * from "./modules/engine/index.js";
 
 // Locators: shared semantic locator helpers

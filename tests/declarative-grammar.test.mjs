@@ -8,6 +8,82 @@ function compile(gherkin) {
 }
 
 describe("Gherkin compiler — semantic locators", () => {
+  it("characterizes every supported built-in step and assertion form", () => {
+    const g = `
+Feature: Complete grammar
+@smoke @complete
+Scenario: Every built-in
+  Given I navigate to "/start"
+  When I click the button "Save"
+  And I type "Ada" into the field "Name"
+  And I select "Admin" in the field "Role"
+  And I wait for the heading "Ready"
+  And I wait 250ms
+  And I check the checkbox "Terms"
+  And I uncheck the checkbox "Terms"
+  And I toggle the toggle "Notifications"
+  And I upload "/tmp/avatar.png" into the file-input "Avatar"
+  And I GET "/api/health"
+  And I POST "/api/users" with body "{}"
+  And I PUT "/api/users/1" with body "{}" and headers '{"X-Trace":"trace"}'
+  Then the url should be "https://example.test/dashboard"
+  And the url should contain "/dashboard"
+  And the API response to "/api/health" should have status 200
+  And the API response to "/api/users" should contain "Ada"
+  And the API response to "/api/users" field "user.name" should equal "Ada"
+  And the response header "content-type" from "/api/users" should contain "json"
+  And requests to "/api/users" should include trace ID
+  And I should see the heading "Dashboard"
+  And I should not see the alert "Failure"
+  And the alert "Warning" should not be visible
+  And the heading "Dashboard" should have text "Dashboard"
+  And the text "Greeting" should contain text "Hello"
+  And the text "Ready" should exist
+`;
+    const { contracts, errors, warnings } = compile(g);
+
+    assert.deepEqual(errors, []);
+    assert.deepEqual(warnings, []);
+    assert.equal(contracts.length, 1);
+    assert.deepEqual(contracts[0].tags, ["smoke", "complete"]);
+    assert.deepEqual(contracts[0].steps, [
+      { type: "navigate", url: "/start" },
+      { type: "click", locator: { strategy: "role", role: "button", name: "Save" } },
+      { type: "type", locator: { strategy: "label", name: "Name" }, value: "Ada" },
+      { type: "select", locator: { strategy: "label", name: "Role" }, value: "Admin" },
+      { type: "wait", locator: { strategy: "role", role: "heading", name: "Ready" } },
+      { type: "wait", timeout: 250 },
+      { type: "check", locator: { strategy: "role", role: "checkbox", name: "Terms" } },
+      { type: "uncheck", locator: { strategy: "role", role: "checkbox", name: "Terms" } },
+      { type: "toggle", locator: { strategy: "role", role: "switch", name: "Notifications" } },
+      { type: "upload", locator: { strategy: "label", name: "Avatar" }, value: "/tmp/avatar.png" },
+      { type: "request", method: "GET", url: "/api/health" },
+      { type: "request", method: "POST", url: "/api/users", body: "{}" },
+      {
+        type: "request",
+        method: "PUT",
+        url: "/api/users/1",
+        body: "{}",
+        headers: { "X-Trace": "trace" },
+      },
+    ]);
+    assert.deepEqual(contracts[0].assertions.map((assertion) => assertion.type), [
+      "url_equals",
+      "url_contains",
+      "status_code",
+      "response_body_contains",
+      "response_body_equals",
+      "response_header_contains",
+      "trace_id_present",
+      "visible",
+      "not_visible",
+      "not_visible",
+      "text_equals",
+      "text_contains",
+      "exists",
+    ]);
+  });
+
   it("compiles role, label, and text locators", () => {
     const g = `
 Feature: Login

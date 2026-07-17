@@ -23,6 +23,8 @@ If working in the QA Intel repository, read these files only as needed:
 - `docs/agent-workflows.md` for agent-to-agent handoff and SQLite investigation.
 - `docs/dsl.md` for compiled `suite.json` and `LocatorSpec` details.
 - `docs/configuration.md` for artifacts, environment, and persistence options.
+- `docs/testing.md` for test-first development and compatibility fixtures.
+- `docs/extensibility.md` before changing schemas, runtime boundaries, results, persistence, or public APIs.
 
 ## Repo Workflow
 
@@ -39,6 +41,24 @@ For a quick package smoke check:
 ```bash
 yarn check:fast
 ```
+
+## Plan And Change QA Intel
+
+Before finalizing a plan, ask the user about unresolved material decisions that affect scope, behavior, public APIs, persistence, security, or compatibility. Resolve low-risk implementation details from repository evidence and established conventions.
+
+For behavioral production-code changes:
+
+1. Read `docs/testing.md` and `docs/extensibility.md`.
+2. Add the narrowest focused failing test.
+3. Run it and observe the expected failure before changing production code.
+4. Implement the smallest passing change, then refactor with focused tests green.
+5. Preserve v1 compatibility fixtures unless the user explicitly approves a breaking change.
+6. Update affected docs in the same change.
+7. Run focused tests, then the broader relevant suite.
+
+Documentation-only changes, generated files, behavior-preserving mechanical refactors, and characterization tests that capture current behavior are exempt from the failing-test requirement. Add characterization coverage before refactoring shared seams.
+
+Built-in capability changes must use the canonical domain schemas, the internal registry, registered parser/execution handlers, and narrow runtime services. Keep the registry and service-injection entry points out of the package root; they are not a public plugin API.
 
 Run the local CLI from built source:
 

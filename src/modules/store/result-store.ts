@@ -8,7 +8,7 @@ import type {
   StepResult,
   FailureSummary,
   FixHint,
-} from "../types/index.js";
+} from "../results/schema.js";
 import type { NetworkEntry, ConsoleLogEntry } from "../logger/index.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────

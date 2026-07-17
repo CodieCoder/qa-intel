@@ -27,8 +27,11 @@ The runtime tests start local HTTP servers and browsers. If they fail with a loc
 ## Project Shape
 
 - `src/cli.ts` contains the `qa-runner` CLI.
-- `src/modules/dsl/` compiles strict Gherkin into `suite.json`.
-- `src/modules/engine/` runs compiled suites through Playwright and tool-style APIs.
+- `src/modules/dsl/` owns strict compiled schemas and assembles Gherkin into `suite.json`.
+- `src/modules/capabilities/` contains the internal built-in registry, parser order, validation metadata, and execution dispatch.
+- `src/modules/results/` owns public result schemas and pure result mappers.
+- `src/modules/tools/` owns tool transport schemas; `src/modules/types/` is a compatibility facade.
+- `src/modules/engine/` runs compiled suites through injected internal services, Playwright, and tool-style APIs.
 - `src/modules/store/` persists run history and diagnostics to SQLite.
 - `docs/` contains user-facing references and workflow guides.
 - `tests/` contains compiler, runtime, package, generator, and result-store tests.
@@ -36,16 +39,22 @@ The runtime tests start local HTTP servers and browsers. If they fail with a loc
 ## Contribution Workflow
 
 1. Open an issue or discussion for larger behavior changes.
-2. Keep pull requests focused on one concern.
-3. Add or update tests for behavior changes.
-4. Update docs when user-facing commands, Gherkin syntax, output shapes, or configuration change.
-5. Run `npm test` before submitting.
+2. Resolve decisions that materially affect scope, behavior, APIs, persistence, security, or compatibility.
+3. Keep pull requests focused on one concern.
+4. Start behavioral changes with a focused failing test and observe the expected failure.
+5. Make the smallest implementation pass, then refactor with focused tests green.
+6. Update docs when user-facing commands, Gherkin syntax, output shapes, or configuration change.
+7. Run `npm test` before submitting.
+
+See `docs/testing.md` for the red-green-refactor workflow, exceptions, test layers, and completion criteria. Read `docs/extensibility.md` before changing schemas, runtime boundaries, result domains, artifacts, persistence, or public APIs.
+
+The failing-test requirement does not apply to documentation-only changes, generated files, behavior-preserving mechanical refactors, or characterization tests that only capture current behavior. Shared-seam refactors still require characterization coverage before they begin. The capability registry and injected service entry points are internal; do not export them from the package root without an approved public API design.
 
 For docs-only changes, run at least:
 
 ```bash
 npm run build
-node --test tests/package-smoke.test.mjs
+node --test tests/documentation-contract.test.mjs tests/package-smoke.test.mjs
 ```
 
 ## Generated Documentation

@@ -1,4 +1,4 @@
-import type { ValidateUIAssertionInput, ValidateUIAssertionOutput } from "../../types/index.js";
+import type { ValidateUIAssertionInput, ValidateUIAssertionOutput } from "../../tools/schema.js";
 import { AssertionEngine } from "../../assertions/index.js";
 import { EngineManager } from "./engine-manager.js";
 import { describeLocator } from "../../locators/index.js";
@@ -25,7 +25,7 @@ export async function validateUIAssertionTool(
   const assertionEngine = new AssertionEngine();
   const assertionId = crypto.randomUUID();
 
-  // V2 assertion matches DSL format directly now — no adapter needed
+  // Tool assertions use the canonical DSL locator format.
   const dslAssertion: any = {
     type: input.assertion.type,
     locator: input.assertion.locator,

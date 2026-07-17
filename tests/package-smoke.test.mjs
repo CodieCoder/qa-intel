@@ -14,9 +14,33 @@ describe("package smoke", () => {
       "AssertionEngine",
       "TestLogger",
       "ResultStore",
+      "EngineManager",
+      "executeStepTool",
+      "executeContractTool",
       "runSuiteTool",
+      "resolveUIElementTool",
+      "validateUIAssertionTool",
+      "resolveAPIContractTool",
+      "validateAPIResponseTool",
+      "generateFixHintsTool",
+      "getStepArtifactsTool",
+      "loadAPIContracts",
+      "clearAPIContracts",
     ]) {
       assert.equal(typeof api[exportName], "function", `${exportName} should be exported`);
+    }
+
+    for (const internalName of [
+      "createDefaultRuntimeServices",
+      "executeContractWithServices",
+      "runSuiteWithServices",
+      "CapabilityRegistry",
+      "createDefaultCapabilityRegistry",
+      "BUILT_IN_CAPABILITIES",
+      "EngineSessionRegistry",
+      "APIContractRegistry",
+    ]) {
+      assert.equal(internalName in api, false, `${internalName} should remain internal`);
     }
 
     assert.equal(typeof api.TestSuiteSchema.safeParse, "function");
@@ -52,6 +76,8 @@ describe("package smoke", () => {
         "dist/index.d.ts",
         "dist/cli.js",
         "docs/cli.md",
+        "docs/extensibility.md",
+        "docs/testing.md",
         "docs/using-in-real-projects.md",
         "examples/login.feature",
         "examples/test-app.html",

@@ -1,4 +1,5 @@
-import type { GenerateFixHintsInput, GenerateFixHintsOutput, FixHint } from "../../types/index.js";
+import type { GenerateFixHintsInput, GenerateFixHintsOutput } from "../../tools/schema.js";
+import type { FixHint } from "../../results/schema.js";
 
 /**
  * Pattern-based failure analysis that generates actionable fix hints.

@@ -1,4 +1,5 @@
-import type { ExecuteStepInput, ExecuteStepOutput, FailureType } from "../../types/index.js";
+import type { ExecuteStepInput, ExecuteStepOutput } from "../../tools/schema.js";
+import type { FailureType } from "../../results/schema.js";
 import { TestLogger } from "../../logger/index.js";
 import { LocalArtifactStorage } from "../../store/index.js";
 import { EngineManager } from "./engine-manager.js";
@@ -22,7 +23,7 @@ export async function executeStepTool(
   try {
     const engine = await EngineManager.getOrCreate(input.traceId, logger);
 
-    // V2 StepInput matches DSL Step directly now — no adapter needed
+    // Tool step input uses the canonical DSL field names.
     const dslStep: any = {
       type: input.step.type,
       locator: input.step.locator,

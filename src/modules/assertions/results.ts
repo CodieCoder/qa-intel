@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-// ─── Assertion Result (internal) ─────────────────────────────────────────────
-// Used by AssertionEngine.evaluate() as the return type.
-// This is the internal assertion result — the V2 output types are in @qa/types.
-
+/** Internal assertion-engine evaluation result; distinct from public UI/API results. */
 export const AssertionResultSchema = z.object({
   assertion: z.string(),
   status: z.enum(["passed", "failed"]),
