@@ -151,6 +151,8 @@ export const SelectStepSchema = z.object({
   type: z.literal("select"),
   locator: LocatorSpecSchema,
   value: z.string(),
+  /** Omitted for backward-compatible deterministic value-or-label matching. */
+  match: z.enum(["label", "value"]).optional(),
 });
 
 export const WaitStepSchema = z.object({

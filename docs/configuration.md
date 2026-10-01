@@ -40,6 +40,13 @@ Auto-healing uses:
 
 Runtime step values and request URLs can contain `{{ENV_VAR}}` placeholders. The action engine resolves those at run time from the process environment and the repo env cascade used by `runtime-env-placeholders.ts`.
 
+For `select` steps, placeholder expansion happens before exact option value or
+visible-label matching. This allows a contract to keep environment-specific
+values outside committed Gherkin while retaining deterministic ambiguity and
+missing-option diagnostics. If the option is not present yet, matching waits up
+to the action timeout before returning the final option snapshot as a structured
+`option_not_found` failure.
+
 ## RunSuiteInput
 
 Programmatic callers can pass a parsed `TestSuite`, a JSON string, or raw Gherkin text as `suite`.

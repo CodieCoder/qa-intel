@@ -113,6 +113,35 @@ Scenario: Successful login
     });
   });
 
+  it("compiles explicit select-by-label and select-by-value forms", () => {
+    const g = `
+Feature: Semantic select
+Scenario: Choose export formats deterministically
+  Given I navigate to "/exports/new"
+  When I select the option labeled "Portable Document Format" in the field "Export format"
+  And I select the option with value "pdf-v2" in the field "Fallback format"
+  Then I should see the heading "Export"
+`;
+    const { contracts, errors, warnings } = compile(g);
+
+    assert.equal(errors.length, 0, JSON.stringify(errors));
+    assert.equal(warnings.length, 0, JSON.stringify(warnings));
+    assert.deepEqual(contracts[0].steps.slice(1), [
+      {
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "Portable Document Format",
+        match: "label",
+      },
+      {
+        type: "select",
+        locator: { strategy: "label", name: "Fallback format" },
+        value: "pdf-v2",
+        match: "value",
+      },
+    ]);
+  });
+
   it("compiles explicit testid and css escape hatches", () => {
     const g = `
 Feature: Escape hatches

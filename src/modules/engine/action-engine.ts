@@ -37,6 +37,48 @@ function expandStepValue(value: string): string {
   return /\{\{[A-Z]/.test(value) ? resolveRuntimeEnvPlaceholders(value) : value;
 }
 
+type SelectMatchMode = NonNullable<SelectStep["match"]> | "auto";
+
+interface NativeSelectOption {
+  index: number;
+  value: string;
+  label: string;
+}
+
+interface NativeSelectMatch extends NativeSelectOption {
+  matchedBy: Array<"value" | "label">;
+}
+
+const SELECT_OPTION_POLL_INTERVAL_MS = 50;
+
+function normalizeVisibleOptionLabel(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function matchNativeSelectOptions(
+  availableOptions: NativeSelectOption[],
+  requested: string,
+  normalizedRequestedLabel: string,
+  matchMode: SelectMatchMode,
+): NativeSelectMatch[] {
+  return availableOptions.flatMap((option) => {
+    const matchedBy: NativeSelectMatch["matchedBy"] = [];
+    if (
+      (matchMode === "auto" || matchMode === "value") &&
+      option.value === requested
+    ) {
+      matchedBy.push("value");
+    }
+    if (
+      (matchMode === "auto" || matchMode === "label") &&
+      option.label === normalizedRequestedLabel
+    ) {
+      matchedBy.push("label");
+    }
+    return matchedBy.length > 0 ? [{ ...option, matchedBy }] : [];
+  });
+}
+
 // Re-export so existing imports from action-engine.ts continue to work
 export type { ConsoleLogEntry } from "../logger/index.js";
 
@@ -395,6 +437,10 @@ export class ActionEngine {
     const failureDiagnostics = await this.captureFailureDiagnostics();
     const locatorDiagnostics = await this.inspectFailedLocator(step);
 
+    const errorDetails = {
+      ...(result?.errorDetails ?? {}),
+      ...(locatorDiagnostics ? { locatorDiagnostics } : {}),
+    };
     const event: StepEvent = {
       timestamp: startTime,
       type: step.type,
@@ -406,7 +452,7 @@ export class ActionEngine {
       screenshotBefore,
       screenshot: failureDiagnostics.screenshot,
       error: lastError?.message ?? "Unknown error",
-      errorDetails: locatorDiagnostics ? { locatorDiagnostics } : undefined,
+      errorDetails: Object.keys(errorDetails).length > 0 ? errorDetails : undefined,
       network: [],
     };
 
@@ -531,13 +577,93 @@ export class ActionEngine {
   private async performSelect(step: SelectStep): Promise<ActionResult> {
     const start = Date.now();
     const locator = resolveLocator(this.getPage(), step.locator);
-    await locator.selectOption(expandStepValue(step.value), {
-      timeout: this.config.timeout,
+    const requested = expandStepValue(step.value);
+    const matchMode: SelectMatchMode = step.match ?? "auto";
+    const normalizedRequestedLabel = normalizeVisibleOptionLabel(requested);
+    const deadline = this.config.timeout > 0
+      ? start + this.config.timeout
+      : undefined;
+    const remainingTimeout = () => deadline === undefined
+      ? 0
+      : Math.max(1, deadline - Date.now());
+    let availableOptions: NativeSelectOption[] = [];
+    let matches: NativeSelectMatch[] = [];
+    let hasInspectedOptions = false;
+
+    while (true) {
+      if (
+        hasInspectedOptions &&
+        deadline !== undefined &&
+        Date.now() >= deadline
+      ) {
+        break;
+      }
+
+      availableOptions = await locator.evaluate(
+        (element) => {
+          const select = element as any;
+          if (select.tagName !== "SELECT" || !select.options) {
+            throw new Error("Select steps require a native <select> element");
+          }
+          return Array.from(select.options as ArrayLike<any>).map((option, index) => ({
+            index,
+            value: option.value,
+            label: option.label.replace(/\s+/g, " ").trim(),
+          }));
+        },
+        undefined,
+        { timeout: remainingTimeout() },
+      ) as NativeSelectOption[];
+      hasInspectedOptions = true;
+      matches = matchNativeSelectOptions(
+        availableOptions,
+        requested,
+        normalizedRequestedLabel,
+        matchMode,
+      );
+
+      if (matches.length > 0) break;
+      if (deadline !== undefined && Date.now() >= deadline) break;
+
+      const pollDelay = deadline === undefined
+        ? SELECT_OPTION_POLL_INTERVAL_MS
+        : Math.min(SELECT_OPTION_POLL_INTERVAL_MS, deadline - Date.now());
+      await this.delay(Math.max(1, pollDelay));
+    }
+
+    const selector = describeLocator(step.locator);
+    if (matches.length !== 1) {
+      const reason = matches.length === 0
+        ? "option_not_found"
+        : "option_ambiguous";
+      const description = matches.length === 0 ? "was not found" : "is ambiguous";
+      return {
+        success: false,
+        duration: Date.now() - start,
+        selector,
+        error: `Select option "${requested}" using ${matchMode} matching ${description} in ${selector}`,
+        errorDetails: {
+          selection: {
+            requested,
+            match: matchMode,
+            reason,
+            matches,
+            availableOptions,
+          },
+        },
+      };
+    }
+
+    await locator.selectOption({
+      value: matches[0].value,
+      label: matches[0].label,
+    }, {
+      timeout: remainingTimeout(),
     });
     return {
       success: true,
       duration: Date.now() - start,
-      selector: describeLocator(step.locator),
+      selector,
     };
   }
 

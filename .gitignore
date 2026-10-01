@@ -4,11 +4,14 @@ dist/
 .qa-results/
 .DS_Store
 
-# Defence-in-depth: the compiler emits suite.json + contracts.json. Default
-# out-dir is now `.qa-results/compile/` (gitignored above), but users can
-# still pass `--out-dir .` — don't let those outputs be committed here.
+# Defence-in-depth: the compiler emits suite.json. Default out-dir is
+# `.qa-results/compile/` (gitignored above), but users can still pass
+# `--out-dir .` — don't let generated outputs be committed here.
 suite.json
 contracts.json
+
+# The v1 compatibility fixture is intentionally source controlled.
+!tests/fixtures/v1/suite.json
 
 # Environment variables
 .env
