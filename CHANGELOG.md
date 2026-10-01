@@ -4,7 +4,7 @@ All notable changes to QA Intel will be documented here.
 
 This project follows semantic versioning once it leaves the initial `0.x` phase. While the package is `0.x`, minor versions may still include breaking changes, and breaking behavior should be called out clearly in this file.
 
-## Unreleased
+## 0.2.0 - 2026-10-01
 
 - added deterministic native-select matching by exact visible label while
   preserving existing value-based contracts
