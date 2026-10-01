@@ -125,6 +125,18 @@ When I select "Admin" in the field "Role"
 When I wait for the heading "Dashboard"
 ```
 
+The natural `select` form matches an exact option value or exact visible label.
+It succeeds only when the requested text identifies one option. If a label and
+value collision identifies different options, the step fails with structured
+selection diagnostics instead of choosing silently. Matching waits up to the
+configured action timeout for options populated after the native select mounts.
+Use an explicit form when the distinction matters:
+
+```gherkin
+When I select the option labeled "Portable Document Format" in the field "Export format"
+When I select the option with value "pdf-v2" in the field "Export format"
+```
+
 UI assertions:
 
 ```gherkin

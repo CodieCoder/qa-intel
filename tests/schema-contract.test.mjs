@@ -100,6 +100,24 @@ describe("public schema contract", () => {
     assert.equal(api.StepSchema.safeParse({ type: "click", locator }).success, true);
     assert.equal(api.StepSchema.safeParse({ type: "click" }).success, false);
     assert.equal(
+      api.SelectStepSchema.safeParse({
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "Portable Document Format",
+        match: "label",
+      }).success,
+      true,
+    );
+    assert.equal(
+      api.SelectStepSchema.safeParse({
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "Portable Document Format",
+        match: "random",
+      }).success,
+      false,
+    );
+    assert.equal(
       api.AssertionSchema.safeParse({ type: "visible", locator }).success,
       true,
     );

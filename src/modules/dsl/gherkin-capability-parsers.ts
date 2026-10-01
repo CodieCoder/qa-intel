@@ -18,6 +18,10 @@ const NAVIGATE_PATTERN = /^(?:I )?navigate to ["'](.+?)["']$/i;
 const WAIT_MS_PATTERN = /^(?:I )?wait (\d+)(?:ms)?$/i;
 const CLICK_PATTERN = /^(?:I )?click (.+)$/i;
 const TYPE_PATTERN = /^(?:I )?type ["'](.+?)["'] into (.+)$/i;
+const SELECT_LABEL_PATTERN =
+  /^(?:I )?select the option labeled ["'](.+?)["'] in (.+)$/i;
+const SELECT_VALUE_PATTERN =
+  /^(?:I )?select the option with value ["'](.+?)["'] in (.+)$/i;
 const SELECT_PATTERN = /^(?:I )?select ["'](.+?)["'] in (.+)$/i;
 const WAIT_FOR_PATTERN = /^(?:I )?wait for (.+)$/i;
 const CHECK_PATTERN = /^(?:I )?check (.+)$/i;
@@ -77,12 +81,20 @@ export const STEP_GHERKIN_PARSERS: Record<
       : null;
   },
   select(text) {
-    const match = text.match(SELECT_PATTERN);
+    const labelMatch = text.match(SELECT_LABEL_PATTERN);
+    const valueMatch = text.match(SELECT_VALUE_PATTERN);
+    const match = labelMatch ?? valueMatch ?? text.match(SELECT_PATTERN);
     if (!match) return null;
     const target = parseLocator(match[2]);
+    const matchMode = labelMatch ? "label" : valueMatch ? "value" : undefined;
     return target
       ? {
-          value: { type: "select", locator: target.locator, value: match[1] },
+          value: {
+            type: "select",
+            locator: target.locator,
+            value: match[1],
+            ...(matchMode ? { match: matchMode } : {}),
+          },
           kind: target.kind,
         }
       : null;

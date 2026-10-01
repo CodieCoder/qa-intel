@@ -49,6 +49,7 @@ export interface ActionResult {
   success: boolean;
   duration: number;
   error?: string;
+  errorDetails?: Record<string, unknown>;
   screenshot?: string;
   dom?: string;
   selector?: string;

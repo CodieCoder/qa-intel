@@ -136,6 +136,8 @@ Given I navigate to "/path"
 When I click the button "Save"
 When I type "hello" into the field "Name"
 When I select "Admin" in the field "Role"
+When I select the option labeled "Portable Document Format" in the field "Export format"
+When I select the option with value "pdf-v2" in the field "Export format"
 When I wait for the heading "Dashboard"
 When I wait 500ms
 When I check the checkbox "Terms"
@@ -143,6 +145,16 @@ When I uncheck the checkbox "Marketing"
 When I toggle the toggle "Dark mode"
 When I upload "/tmp/file.pdf" into the field "Document"
 ```
+
+`When I select "..."` is backward compatible with existing value-based
+contracts and also supports exact visible option labels. The runtime inspects
+both dimensions and selects only when they identify one option. A collision
+between one option's label and another option's value fails as ambiguous.
+
+Use `the option labeled` or `the option with value` to make the matching mode
+explicit. Environment placeholders such as `{{EXPORT_FORMAT_LABEL}}` are
+expanded before option matching. Native options populated asynchronously are
+matched until the configured action timeout expires.
 
 ## Assertions
 

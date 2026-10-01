@@ -34,6 +34,19 @@ const RUNTIME_HTML = `<!doctype html>
       <option value="us">United States</option>
     </select>
 
+    <label for="export-format">Export format</label>
+    <select id="export-format">
+      <option value="">Choose</option>
+      <option value="pdf-v2">Portable Document Format</option>
+      <option value="csv-v2">Comma-separated values</option>
+    </select>
+
+    <label for="collision-choice">Collision choice</label>
+    <select id="collision-choice">
+      <option value="uuid-label-match">Collision</option>
+      <option value="Collision">Different label</option>
+    </select>
+
     <label><input id="terms" type="checkbox" /> Accept terms</label>
     <button id="toggle-button" data-on="false">Enable setting</button>
 
@@ -81,12 +94,26 @@ const RUNTIME_HTML = `<!doctype html>
 function runtimeRoutes() {
   return {
     "/runtime": {
-      headers: { "content-type": "text/html" },
+      headers: { "content-type": "text/html; charset=utf-8" },
       body: RUNTIME_HTML,
     },
     "/failure": {
       headers: { "content-type": "text/html" },
       body: "<!doctype html><h1>Failure fixture</h1>",
+    },
+    "/delayed-select": {
+      headers: { "content-type": "text/html; charset=utf-8" },
+      body: `<!doctype html>
+        <label for="delivery-method">Delivery method</label>
+        <select id="delivery-method"><option value="">Loading methods</option></select>
+        <script>
+          setTimeout(() => {
+            const option = document.createElement("option");
+            option.value = "email";
+            option.textContent = "Email";
+            document.getElementById("delivery-method").append(option);
+          }, 200);
+        </script>`,
     },
     "/heal": {
       headers: { "content-type": "text/html" },
@@ -288,6 +315,170 @@ describe("ActionEngine browser runtime", () => {
       assertBase64Png(results[1].screenshot);
       assert.equal(results[2].duration, 0);
       assert.equal(results[2].network.length, 0);
+    } finally {
+      await engine.close();
+      await server.close();
+    }
+  });
+
+  it("selects native options by existing value and visible label, including env placeholders", async () => {
+    const server = await startHttpServer(createRouteHandler(runtimeRoutes()));
+    const { engine } = makeEngine(server.origin);
+    process.env.QA_INTEL_TEST_FORMAT_LABEL = "Comma-separated values";
+
+    try {
+      await engine.launch();
+      await engine.execute({ type: "navigate", url: "/runtime" });
+
+      const byValue = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Country" },
+        value: "ng",
+      });
+      const byLabel = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "Portable Document Format",
+      });
+      const byPlaceholderLabel = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "{{QA_INTEL_TEST_FORMAT_LABEL}}",
+        match: "label",
+      });
+
+      assert.equal(byValue.result, "success");
+      assert.equal(byLabel.result, "success");
+      assert.equal(byPlaceholderLabel.result, "success");
+      assert.deepEqual(
+        await engine.getPage().evaluate(() => ({
+          country: document.getElementById("country").value,
+          exportFormat: document.getElementById("export-format").value,
+        })),
+        {
+          country: "ng",
+          exportFormat: "csv-v2",
+        },
+      );
+    } finally {
+      delete process.env.QA_INTEL_TEST_FORMAT_LABEL;
+      await engine.close();
+      await server.close();
+    }
+  });
+
+  it("waits up to the action timeout for asynchronously loaded native options", async () => {
+    const server = await startHttpServer(createRouteHandler(runtimeRoutes()));
+    const { engine } = makeEngine(server.origin, { timeout: 1_000 });
+
+    try {
+      await engine.launch();
+      await engine.execute({ type: "navigate", url: "/delayed-select" });
+
+      const result = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Delivery method" },
+        value: "email",
+      });
+
+      assert.equal(result.result, "success", result.error);
+      assert.equal(
+        await engine.getPage().locator("#delivery-method").inputValue(),
+        "email",
+      );
+    } finally {
+      await engine.close();
+      await server.close();
+    }
+  });
+
+  it("fails missing and ambiguous options with structured selection diagnostics", async () => {
+    const server = await startHttpServer(createRouteHandler(runtimeRoutes()));
+    const { engine } = makeEngine(server.origin, { timeout: 250 });
+
+    try {
+      await engine.launch();
+      await engine.execute({ type: "navigate", url: "/runtime" });
+
+      const missing = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Export format" },
+        value: "Rich Text Format",
+      });
+      const ambiguous = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Collision choice" },
+        value: "Collision",
+      });
+
+      assert.equal(missing.result, "failed");
+      assert.match(missing.error, /Rich Text Format.*auto.*not found/i);
+      assert.deepEqual(missing.errorDetails.selection, {
+        requested: "Rich Text Format",
+        match: "auto",
+        reason: "option_not_found",
+        matches: [],
+        availableOptions: [
+          { index: 0, value: "", label: "Choose" },
+          { index: 1, value: "pdf-v2", label: "Portable Document Format" },
+          { index: 2, value: "csv-v2", label: "Comma-separated values" },
+        ],
+      });
+
+      assert.equal(ambiguous.result, "failed");
+      assert.match(ambiguous.error, /Collision.*auto.*ambiguous/i);
+      assert.deepEqual(ambiguous.errorDetails.selection.matches, [
+        {
+          index: 0,
+          value: "uuid-label-match",
+          label: "Collision",
+          matchedBy: ["label"],
+        },
+        {
+          index: 1,
+          value: "Collision",
+          label: "Different label",
+          matchedBy: ["value"],
+        },
+      ]);
+      assert.equal(ambiguous.errorDetails.selection.reason, "option_ambiguous");
+    } finally {
+      await engine.close();
+      await server.close();
+    }
+  });
+
+  it("uses explicit label or value matching to resolve label/value collisions", async () => {
+    const server = await startHttpServer(createRouteHandler(runtimeRoutes()));
+    const { engine } = makeEngine(server.origin);
+
+    try {
+      await engine.launch();
+      await engine.execute({ type: "navigate", url: "/runtime" });
+
+      const byLabel = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Collision choice" },
+        value: "Collision",
+        match: "label",
+      });
+      assert.equal(byLabel.result, "success");
+      assert.equal(
+        await engine.getPage().evaluate(() => document.getElementById("collision-choice").selectedIndex),
+        0,
+      );
+
+      const byValue = await engine.execute({
+        type: "select",
+        locator: { strategy: "label", name: "Collision choice" },
+        value: "Collision",
+        match: "value",
+      });
+      assert.equal(byValue.result, "success");
+      assert.equal(
+        await engine.getPage().evaluate(() => document.getElementById("collision-choice").selectedIndex),
+        1,
+      );
     } finally {
       await engine.close();
       await server.close();

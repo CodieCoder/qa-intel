@@ -4,6 +4,16 @@ All notable changes to QA Intel will be documented here.
 
 This project follows semantic versioning once it leaves the initial `0.x` phase. While the package is `0.x`, minor versions may still include breaking changes, and breaking behavior should be called out clearly in this file.
 
+## Unreleased
+
+- added deterministic native-select matching by exact visible label while
+  preserving existing value-based contracts
+- added explicit select-by-label and select-by-value Gherkin forms for
+  resolving label/value collisions
+- added structured missing-option and ambiguous-option diagnostics, including
+  runtime environment-placeholder coverage
+- preserved action-timeout waiting for asynchronously populated native options
+
 ## 0.0.1 - 2026-06-04
 
 Documentation and package polish for the public project.

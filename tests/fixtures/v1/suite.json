@@ -1,0 +1,70 @@
+{
+  "name": "V1 compatibility",
+  "baseUrl": "https://example.test",
+  "contracts": [
+    {
+      "intent": "representative_browser_and_api_contract",
+      "description": "Representative browser and API contract",
+      "tags": [
+        "smoke",
+        "api"
+      ],
+      "steps": [
+        {
+          "type": "navigate",
+          "url": "/login"
+        },
+        {
+          "type": "type",
+          "locator": {
+            "strategy": "label",
+            "name": "Email"
+          },
+          "value": "maac@example.com"
+        },
+        {
+          "type": "click",
+          "locator": {
+            "strategy": "role",
+            "role": "button",
+            "name": "Log in"
+          }
+        },
+        {
+          "type": "request",
+          "method": "GET",
+          "url": "/api/session"
+        }
+      ],
+      "assertions": [
+        {
+          "type": "visible",
+          "locator": {
+            "strategy": "role",
+            "role": "heading",
+            "name": "Dashboard"
+          }
+        },
+        {
+          "type": "url_contains",
+          "value": "/dashboard"
+        },
+        {
+          "type": "status_code",
+          "url": "/api/session",
+          "value": 200
+        },
+        {
+          "type": "response_header_contains",
+          "url": "/api/session",
+          "header": "content-type",
+          "value": "application/json"
+        },
+        {
+          "type": "trace_id_present",
+          "url": "/api/session"
+        }
+      ]
+    }
+  ]
+}

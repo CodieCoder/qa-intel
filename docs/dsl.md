@@ -65,7 +65,7 @@ Resolution:
 | `navigate` | `url` |
 | `click` | `locator` |
 | `type` | `locator`, `value` |
-| `select` | `locator`, `value` |
+| `select` | `locator`, `value`; optional `match` (`label` or `value`) |
 | `wait` | `timeout` or `locator` |
 | `check` | `locator` |
 | `uncheck` | `locator` |
@@ -95,11 +95,18 @@ Resolution:
 ```gherkin
 When I click the button "Log in"
 When I type "maac@example.com" into the field "Email"
+When I select "Portable Document Format" in the field "Export format"
 Then I should see the heading "Dashboard"
 Then the text "Welcome back" should exist
 Then requests to "/api/session" should include trace ID
 When I click testid:login-submit
 When I click css:[data-state='ready']
 ```
+
+When `match` is omitted from a compiled `select` step, the runtime performs
+exact value-or-label matching and requires one unique option. Explicit Gherkin
+forms compile to `match: "label"` or `match: "value"`; older suites without the
+field remain valid. Missing and ambiguous options report their attempted mode,
+requested text, matches, and available options in step error details.
 
 Old raw targets such as `When I click login-submit` are not valid in v1. Use semantic wording or an explicit `testid:` fallback.
